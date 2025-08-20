@@ -264,7 +264,6 @@
     const exportCsvBtn = document.getElementById('exportCsvBtn');
     const importBtn = document.getElementById('importBtn');
     const importFile = document.getElementById('importFile');
-    const templateBtn = document.getElementById('templateBtn');
 
     let chart = null;
 
@@ -499,25 +498,6 @@
       renderTable();
       renderChart();
       importFile.value = "";
-    });
-
-    // Download template CSV
-    templateBtn.addEventListener('click', () => {
-      const headers = ["weight_lbs","age_weeks","height_in","sex","name"];
-      const sample = [
-        headers.join(","),
-        "11.3,14,14.75,F,Alice",
-        "22.1,28,18.2,M,Bob"
-      ].join("\\n");
-      const blob = new Blob([sample], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = "dog_metrics_template.csv";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
     });
 
     exportCsvBtn.addEventListener('click', () => {
