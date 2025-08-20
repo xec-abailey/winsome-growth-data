@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,29 +8,51 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #e5e7eb; padding: 0.5rem; text-align: left; }
-    th { background: #f3f4f6; }
-    .chip { display:inline-block; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    th,
+    td {
+      border: 1px solid #e5e7eb;
+      padding: 0.5rem;
+      text-align: left;
+    }
+
+    th {
+      background: #f3f4f6;
+    }
+
+    .chip {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+    }
   </style>
 </head>
+
 <body class="bg-gray-50 text-gray-900">
   <div class="max-w-6xl mx-auto p-6 space-y-6">
     <header class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold">Dog Metrics Plotter</h1>
-        <p class="text-sm text-gray-600">Add new entries and visualize relationships. Units: Weight (lbs), Height (in), Age (weeks).</p>
+        <p class="text-sm text-gray-600">Add new entries and visualize relationships. Units: Weight (lbs), Height (in),
+          Age (weeks).</p>
       </div>
-      <div class="flex gap-2">
+      <div class="flex gap-2 items-center">
         <button id="exportCsvBtn" class="px-3 py-2 rounded-xl bg-white border hover:bg-gray-50">Export CSV</button>
-        <button id="resetBtn" class="px-3 py-2 rounded-xl bg-white border hover:bg-gray-50">Reset to Original</button><input type="file" id="importFile" accept=".csv" class="hidden"><button id="importBtn" class="px-3 py-2 rounded-xl bg-white border hover:bg-gray-50">Import CSV</button>
+        <input type="file" id="importFile" accept=".csv" class="hidden">
+        <button id="importBtn" class="px-3 py-2 rounded-xl bg-white border hover:bg-gray-50">Import CSV</button>
       </div>
     </header>
 
     <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div class="md:col-span-1 space-y-4">
         <div class="bg-white rounded-2xl shadow p-4">
-          <h2 class="font-semibold mb-3">Chart Controls</h2><p class="text-xs text-gray-500 mb-2">Use Import CSV to load existing data if none is shown.</p>
+          <h2 class="font-semibold mb-3">Chart Controls</h2>
+          <p class="text-xs text-gray-500 mb-2">Use Import CSV to load existing data if none is shown.</p>
           <div class="grid grid-cols-2 gap-3">
             <label class="text-sm">X-Axis
               <select id="xAxis" class="w-full mt-1 border rounded-md p-2">
@@ -45,10 +68,7 @@
                 <option value="height_in">Height (in)</option>
               </select>
             </label>
-            <label class="text-sm col-span-2 flex items-center gap-2">
-              <input id="sizeByHeight" type="checkbox" class="h-4 w-4">
-              <span>Size points by Height (in)</span>
-            </label>
+            <!-- Removed size-by-height control -->
             <label class="text-sm col-span-2">Filter by Sex
               <select id="sexFilter" class="w-full mt-1 border rounded-md p-2">
                 <option value="ALL" selected>All</option>
@@ -57,36 +77,18 @@
                 <option value="OTHER">Other/Unspecified</option>
               </select>
             </label>
-          </div>
-        </div>
-
-        <div class="bg-white rounded-2xl shadow p-4">
-          <h2 class="font-semibold mb-3">Add Entry</h2>
-          <form id="addForm" class="grid grid-cols-2 gap-3">
-            <label class="text-sm">Weight (lbs)
-              <input name="weight_lbs" type="number" step="0.01" class="w-full mt-1 border rounded-md p-2" placeholder="e.g., 25.3">
-            </label>
-            <label class="text-sm">Age (weeks)
-              <input name="age_weeks" type="number" step="0.01" class="w-full mt-1 border rounded-md p-2" placeholder="e.g., 14">
-            </label>
-            <label class="text-sm">Height (in)
-              <input name="height_in" type="number" step="0.01" class="w-full mt-1 border rounded-md p-2" placeholder="e.g., 18.5">
-            </label>
-            <label class="text-sm">Sex
-              <select name="sex" class="w-full mt-1 border rounded-md p-2">
-                <option value="">Unspecified</option>
-                <option value="F">F</option>
-                <option value="M">M</option>
+            <label class="text-sm col-span-2">Color by
+              <select id="colorBy" class="w-full mt-1 border rounded-md p-2">
+                <option value="sex" selected>Sex</option>
+                <option value="name">Name</option>
               </select>
             </label>
-            <label class="text-sm col-span-2">Name
-              <input name="name" type="text" class="w-full mt-1 border rounded-md p-2" placeholder="Optional">
+            <label class="text-sm col-span-2">Filter by Name
+              <select id="nameFilter" class="w-full mt-1 border rounded-md p-2">
+                <option value="ALL" selected>All</option>
+              </select>
             </label>
-            <div class="col-span-2 flex items-center gap-2">
-              <button class="px-3 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700" type="submit">Add</button>
-              <span class="text-xs text-gray-500">New entries are saved to your browser (localStorage).</span>
-            </div>
-          </form>
+          </div>
         </div>
       </div>
 
@@ -97,9 +99,41 @@
         </div>
         <div id="chartWrap" class="w-full" style="height:420px;"><canvas id="chart"></canvas></div>
         <div class="mt-3 text-xs text-gray-500">
-          Tip: Switch axes from the controls. Toggle "Size points by Height" to emphasize taller dogs.
+          Tip: Switch axes from the controls.
         </div>
       </div>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow p-4">
+      <h2 class="font-semibold mb-3">Add Entry</h2>
+      <form id="addForm" class="grid grid-cols-2 gap-3">
+        <label class="text-sm">Weight (lbs)
+          <input name="weight_lbs" type="number" step="0.01" class="w-full mt-1 border rounded-md p-2"
+            placeholder="e.g., 25.3">
+        </label>
+        <label class="text-sm">Age (weeks)
+          <input name="age_weeks" type="number" step="0.01" class="w-full mt-1 border rounded-md p-2"
+            placeholder="e.g., 14">
+        </label>
+        <label class="text-sm">Height (in)
+          <input name="height_in" type="number" step="0.01" class="w-full mt-1 border rounded-md p-2"
+            placeholder="e.g., 18.5">
+        </label>
+        <label class="text-sm">Sex
+          <select name="sex" class="w-full mt-1 border rounded-md p-2">
+            <option value="">Unspecified</option>
+            <option value="F">F</option>
+            <option value="M">M</option>
+          </select>
+        </label>
+        <label class="text-sm col-span-2">Name
+          <input name="name" type="text" class="w-full mt-1 border rounded-md p-2" placeholder="Optional">
+        </label>
+        <div class="col-span-2 flex items-center gap-2">
+          <button class="px-3 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700" type="submit">Add</button>
+          <span class="text-xs text-gray-500">New entries are saved to your browser (localStorage).</span>
+        </div>
+      </form>
     </section>
 
     <section class="bg-white rounded-2xl shadow p-4">
@@ -129,396 +163,7 @@
     </footer>
   </div>
 
-  <script>
-    let originalData = [];
-    const LS_KEY = "dog_metrics_data_v2";
-
-    function num(x) {
-      const n = typeof x === "string" ? parseFloat(x) : x;
-      return (Number.isFinite(n) ? n : null);
-    }
-    function normalizeRecord(r) {
-      if (!r || typeof r !== 'object') return {};
-      // migrate legacy column names
-      const out = { ...r };
-      if (out["Name"] && !out.name) out.name = out["Name"];
-      if (out["Weight (lbs)"] != null && out.weight_lbs == null) out.weight_lbs = num(out["Weight (lbs)"]);
-      if (out["Age (Normalized Weeks)"] != null && out.age_weeks == null) out.age_weeks = num(out["Age (Normalized Weeks)"]);
-      if (out["Height (in)"] != null && out.height_in == null) out.height_in = num(out["Height (in)"]);
-      // coerce numbers
-      out.weight_lbs = num(out.weight_lbs);
-      out.age_weeks = num(out.age_weeks);
-      out.height_in = num(out.height_in);
-      // normalize sex
-      if (out.sex != null) {
-        const s = String(out.sex).trim().toUpperCase();
-        if (s.startsWith("F")) out.sex = "F";
-        else if (s.startsWith("M")) out.sex = "M";
-        else out.sex = s || null;
-      } else {
-        out.sex = null;
-      }
-      return out;
-    }
-
-    // --- CSV Import Utilities ---
-    function detectDelimiter(text) {
-      // Try commas, tabs, semicolons
-      const candidates = [",", "\t", ";", "|"];
-      let bestDelim = ",";
-      let bestScore = -1;
-      for (const d of candidates) {
-        const lines = text.split(/\r?\n/).slice(0, 10).filter(Boolean);
-        if (!lines.length) continue;
-        const counts = lines.map(l => l.split(d).length);
-        const variance = counts.reduce((a,c)=>a+c,0) / counts.length;
-        // prefer delimiters that produce more columns (rough heuristic)
-        if (variance > bestScore) { bestScore = variance; bestDelim = d; }
-      }
-      return bestDelim;
-    }
-
-    function parseCSV(text) {
-      const delim = detectDelimiter(text);
-      const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
-      if (!lines.length) return [];
-      const header = lines[0].split(delim).map(h => h.trim());
-      const rows = lines.slice(1);
-      const out = [];
-      for (const line of rows) {
-        const cols = line.split(delim);
-        const rec = {};
-        header.forEach((h, i) => {
-          rec[h] = (i < cols.length) ? cols[i].trim() : "";
-        });
-        out.push(rec);
-      }
-      return out;
-    }
-
-    function headerMapFor(obj) {
-      // Map common header variants to normalized keys
-      const keys = Object.keys(obj).reduce((acc,k)=>{ acc[k.toLowerCase()] = k; return acc; }, {});
-      const pick = (variants) => {
-        for (const v of variants) {
-          const lk = v.toLowerCase();
-          if (lk in keys) return keys[lk];
-        }
-        return null;
-      };
-      return {
-        weight: pick(["weight_lbs","weight (lbs)","weight","wt"]),
-        age: pick(["age_weeks","age (normalized weeks)","age","age (weeks)"]),
-        height: pick(["height_in","height (in)","height","ht"]),
-        sex: pick(["sex","gender"]),
-        name: pick(["name","Name"]),
-      };
-    }
-
-    function normalizeImported(records) {
-      const out = [];
-      for (const r of records) {
-        const map = headerMapFor(r);
-        const norm = {
-          weight_lbs: (map.weight ? r[map.weight] : null),
-          age_weeks: (map.age ? r[map.age] : null),
-          height_in: (map.height ? r[map.height] : null),
-          sex: (map.sex ? r[map.sex] : null),
-          name: (map.name ? r[map.name] : null),
-        };
-        out.push(normalizeRecord(norm));
-      }
-      return out;
-    }
-
-
-
-    async function loadData() {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length) return parsed.map(normalizeRecord);
-        } catch {}
-      }
-      try {
-        const res = await fetch('data/original_data.json');
-        const data = await res.json();
-        originalData = Array.isArray(data) ? data.map(normalizeRecord) : [];
-      } catch {
-        originalData = [];
-      }
-      return [...originalData];
-    }
-    function saveData(data) { localStorage.setItem(LS_KEY, JSON.stringify(data)); }
-
-    let state = { data: [], sortCol: null, sortAsc: true };
-
-    const xAxisSel = document.getElementById('xAxis');
-    const yAxisSel = document.getElementById('yAxis');
-    const sexFilter = document.getElementById('sexFilter');
-    const sizeByHeight = document.getElementById('sizeByHeight');
-    const addForm = document.getElementById('addForm');
-    const summaryCount = document.getElementById('summaryCount');
-    const resetBtn = document.getElementById('resetBtn');
-    const exportCsvBtn = document.getElementById('exportCsvBtn');
-    const importBtn = document.getElementById('importBtn');
-    const importFile = document.getElementById('importFile');
-
-    let chart = null;
-
-    function buildDatasets(filtered) {
-      const groups = {
-        "F": {label: "Female (F)", points: []},
-        "M": {label: "Male (M)", points: []},
-        "OTHER": {label: "Other/Unspecified", points: []},
-      };
-
-      const xKey = xAxisSel.value;
-      const yKey = yAxisSel.value;
-
-      let hMin = Infinity, hMax = -Infinity;
-      if (sizeByHeight.checked) {
-        filtered.forEach(r => {
-          if (typeof r.height_in === "number" && !isNaN(r.height_in)) {
-            hMin = Math.min(hMin, r.height_in);
-            hMax = Math.max(hMax, r.height_in);
-          }
-        });
-        if (!isFinite(hMin)) { hMin = 0; hMax = 1; }
-      }
-
-      const scaleRadius = (h) => {
-        if (!sizeByHeight.checked || typeof h !== "number" || isNaN(h)) return 4;
-        if (hMax === hMin) return 6;
-        const t = (h - hMin) / (hMax - hMin);
-        return 3 + t * 7;
-      };
-
-      filtered.forEach((r, idx) => {
-        const sx = r[xKey];
-        const sy = r[yKey];
-        if (typeof sx !== "number" || isNaN(sx) || typeof sy !== "number" || isNaN(sy)) return;
-        const sex = (r.sex || "OTHER").toUpperCase();
-        const key = (sex === "F" || sex === "M") ? sex : "OTHER";
-        groups[key].points.push({
-          x: sx, y: sy, r: scaleRadius(r.height_in),
-          idx, tooltip: r
-        });
-      });
-
-      const ds = [];
-      const colorMap = {
-        "F": "rgba(79, 70, 229, 0.7)",
-        "M": "rgba(220, 38, 38, 0.7)",
-        "OTHER": "rgba(107, 114, 128, 0.7)"
-      };
-      for (const key of ["F","M","OTHER"]) {
-        const g = groups[key];
-        if (g.points.length === 0) continue;
-        ds.push({
-          label: g.label,
-          data: g.points,
-          parsing: false,
-          showLine: false,
-          pointRadius: ctx => ctx.raw?.r ?? 4,
-          pointHoverRadius: ctx => (ctx.raw?.r ?? 4) + 2,
-          backgroundColor: colorMap[key],
-        });
-      }
-      return ds;
-    }
-
-    function currentFilter(data) {  const f = sexFilter.value;  if (f === 'ALL') return data;  if (f === 'OTHER') return data.filter(r => !r.sex || (r.sex.toUpperCase() !== 'F' && r.sex.toUpperCase() !== 'M'));  return data.filter(r => (r.sex || '').toUpperCase() === f);}
-
-    function renderChart() {
-      const filtered = currentFilter(state.data);
-      summaryCount.textContent = filtered.length;
-      const datasets = buildDatasets(filtered);
-      const xKey = xAxisSel.value, yKey = yAxisSel.value;
-
-      const labelMap = {
-        weight_lbs: "Weight (lbs)",
-        age_weeks: "Age (weeks)",
-        height_in: "Height (in)",
-      };
-
-      const cfg = {
-        type: 'scatter',
-        data: { datasets },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { position: 'top' },
-            tooltip: {
-              callbacks: {
-                title: (ctx) => ctx[0]?.raw?.tooltip?.name || "Entry",
-                label: (ctx) => {
-                  const r = ctx.raw.tooltip;
-                  return [
-                    `Weight: ${r.weight_lbs ?? "—"} lbs`,
-                    `Age: ${r.age_weeks ?? "—"} weeks`,
-                    `Height: ${r.height_in ?? "—"} in`,
-                    `Sex: ${r.sex ?? "—"}`,
-                  ];
-                }
-              }
-            }
-          },
-          scales: {
-            x: { title: { display: true, text: labelMap[xKey] } },
-            y: { title: { display: true, text: labelMap[yKey] } }
-          }
-        }
-      };
-
-      const ctx = document.getElementById('chart').getContext('2d');
-      if (chart) { chart.destroy(); }
-      chart = new Chart(ctx, cfg);
-    }
-
-    function renderTable() {
-      const tbody = document.querySelector('#dataTable tbody');
-      tbody.innerHTML = '';
-      let rows = [...state.data];
-
-      if (state.sortCol) {
-        rows.sort((a, b) => {
-          const va = a[state.sortCol];
-          const vb = b[state.sortCol];
-          if (va == null && vb == null) return 0;
-          if (va == null) return state.sortAsc ? 1 : -1;
-          if (vb == null) return state.sortAsc ? -1 : 1;
-          if (typeof va === "number" && typeof vb === "number") return state.sortAsc ? va - vb : vb - va;
-          return state.sortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
-        });
-      }
-
-      rows.forEach((r, idx) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${r.weight_lbs ?? ""}</td>
-          <td>${r.age_weeks ?? ""}</td>
-          <td>${r.height_in ?? ""}</td>
-          <td>${r.sex ?? ""}</td>
-          <td>${r.name ?? ""}</td>
-          <td><button data-idx="${idx}" class="deleteBtn text-red-600 text-sm">Delete</button></td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      document.querySelectorAll('.deleteBtn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const i = Number(e.currentTarget.getAttribute('data-idx'));
-          state.data.splice(i, 1);
-          saveData(state.data);
-          renderTable();
-          renderChart();
-        });
-      });
-    }
-
-    document.querySelectorAll('#dataTable th[data-col]').forEach(th => {
-      th.addEventListener('click', () => {
-        const col = th.getAttribute('data-col');
-        if (state.sortCol === col) { state.sortAsc = !state.sortAsc; }
-        else { state.sortCol = col; state.sortAsc = true; }
-        renderTable();
-      });
-    });
-
-    addForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const form = new FormData(addForm);
-      const weight = parseFloat(form.get('weight_lbs'));
-      const age = parseFloat(form.get('age_weeks'));
-      const height = parseFloat(form.get('height_in'));
-      const sex = (form.get('sex') || "").toUpperCase() || null;
-      const name = form.get('name') || null;
-
-      const rec = {
-        weight_lbs: isFinite(weight) ? weight : null,
-        age_weeks: isFinite(age) ? age : null,
-        height_in: isFinite(height) ? height : null,
-        sex: sex && (sex === "F" || sex === "M") ? sex : (sex || null),
-        name: name || null,
-      };
-
-      state.data = [...state.data, rec]; saveData(state.data);
-      addForm.reset();
-      renderTable();
-      renderChart();
-    });
-
-    [xAxisSel, yAxisSel, sexFilter, sizeByHeight].forEach(el => el.addEventListener('change', () => renderChart()));
-
-    resetBtn.addEventListener('click', () => {
-      if (!confirm("Reset to original data from the spreadsheet? This will clear your local edits.")) return;
-      localStorage.removeItem(LS_KEY);
-      state.data = [...originalData];
-      renderTable();
-      renderChart();
-    });
-
-    function toCsv(arr) {
-      const headers = ["weight_lbs","age_weeks","height_in","sex","name"];
-      const lines = [headers.join(",")];
-      for (const r of arr) {
-        const row = headers.map(h => {
-          let v = r[h];
-          if (v === null || v === undefined) return "";
-          if (typeof v === "string" && (v.includes(',') || v.includes('"') || v.includes('\n'))) {
-            v = '"' + v.replace(/"/g, '""') + '"';
-          }
-          return v;
-        }).join(",");
-        lines.push(row);
-      }
-      return lines.join("\n");
-    }
-
-    
-    // Import CSV flow
-    importBtn.addEventListener('click', () => importFile.click());
-    importFile.addEventListener('change', async (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-      const text = await file.text();
-      const parsed = parseCSV(text);
-      if (!parsed.length) { alert("No rows found in CSV."); return; }
-      const normalized = normalizeImported(parsed);
-      const append = confirm("Import complete. Click OK to APPEND, or Cancel to REPLACE your current data.");
-      if (append) {
-        state.data = state.data.concat(normalized);
-      } else {
-        state.data = normalized;
-      }
-      saveData(state.data);
-      renderTable();
-      renderChart();
-      importFile.value = "";
-    });
-
-    exportCsvBtn.addEventListener('click', () => {
-      const csv = toCsv(state.data);
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = "dog_metrics.csv";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    });
-
-    async function init() {
-      state.data = await loadData();
-      renderTable();
-      renderChart();
-    }
-    init();
-  </script>
+  <script type="module" src="./src/main.js"></script>
 </body>
+
 </html>
