@@ -7,7 +7,6 @@ import { normalizeRecord } from './utils.js';
 const xAxisSel = document.getElementById('xAxis');
 const yAxisSel = document.getElementById('yAxis');
 const sexFilter = document.getElementById('sexFilter');
-const sizeByHeight = document.getElementById('sizeByHeight');
 const addForm = document.getElementById('addForm');
 const summaryCount = document.getElementById('summaryCount');
 const resetBtn = document.getElementById('resetBtn');
@@ -55,7 +54,7 @@ function rerender(state) {
     fullData: state.data,
     xKey: xAxisSel.value,
     yKey: yAxisSel.value,
-    sizeByHeight: sizeByHeight.checked,
+    sizeByHeight: false, // Always set to false
     colorBy: colorBySel?.value || 'sex',
     chartRef,
     summaryEl: summaryCount
@@ -75,7 +74,7 @@ async function init() {
   renderTable(state);
   rerender(state);
 
-  [xAxisSel, yAxisSel, sexFilter, sizeByHeight, colorBySel, nameFilterSel].filter(Boolean)
+  [xAxisSel, yAxisSel, sexFilter, colorBySel, nameFilterSel].filter(Boolean)
     .forEach(el => el.addEventListener('change', () => rerender(state)));
 
   addForm.addEventListener('submit', e => {
