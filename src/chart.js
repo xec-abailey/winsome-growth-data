@@ -59,6 +59,24 @@ export function buildDatasets(filtered, { xKey, yKey, sizeByHeight }) {
   return ds;
 }
 
+function computeDomain(rows, key) {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const r of rows) {
+    const v = r?.[key];
+    if (typeof v === 'number' && isFinite(v)) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+  }
+  if (!isFinite(min) || !isFinite(max)) return [0, 1];
+  if (min === max) {
+    const pad = Math.max(1, Math.abs(min) * 0.05);
+    return [min - pad, max + pad];
+  }
+  return [min, max];
+}
+
 export function renderChart({ data, xKey, yKey, sizeByHeight, chartRef, summaryEl }) {
   const filtered = data;
   if (summaryEl) summaryEl.textContent = filtered.length;
@@ -69,6 +87,9 @@ export function renderChart({ data, xKey, yKey, sizeByHeight, chartRef, summaryE
     age_weeks: 'Age (weeks)',
     height_in: 'Height (in)'
   };
+
+  const [minX, maxX] = computeDomain(filtered, xKey);
+  const [minY, maxY] = computeDomain(filtered, yKey);
 
   const cfg = {
     type: 'scatter',
@@ -94,8 +115,8 @@ export function renderChart({ data, xKey, yKey, sizeByHeight, chartRef, summaryE
         }
       },
       scales: {
-        x: { title: { display: true, text: labelMap[xKey] } },
-        y: { title: { display: true, text: labelMap[yKey] } }
+        x: { bounds: 'data', min: minX, max: maxX, title: { display: true, text: labelMap[xKey] } },
+        y: { bounds: 'data', min: minY, max: maxY, title: { display: true, text: labelMap[yKey] } }
       }
     }
   };
