@@ -14,6 +14,7 @@ const resetBtn = document.getElementById('resetBtn');
 const exportCsvBtn = document.getElementById('exportCsvBtn');
 const importBtn = document.getElementById('importBtn');
 const importFile = document.getElementById('importFile');
+// New controls
 const colorBySel = document.getElementById('colorBy');
 const nameFilterSel = document.getElementById('nameFilter');
 
@@ -51,6 +52,7 @@ function rerender(state) {
   summaryCount.textContent = filtered.length;
   renderChart({
     data: filtered,
+    fullData: state.data,
     xKey: xAxisSel.value,
     yKey: yAxisSel.value,
     sizeByHeight: sizeByHeight.checked,

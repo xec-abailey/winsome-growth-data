@@ -90,7 +90,7 @@ function computeDomain(rows, key) {
   return [min, max];
 }
 
-export function renderChart({ data, xKey, yKey, sizeByHeight, colorBy, chartRef, summaryEl }) {
+export function renderChart({ data, fullData, xKey, yKey, sizeByHeight, colorBy, chartRef, summaryEl }) {
   const filtered = data;
   if (summaryEl) summaryEl.textContent = filtered.length;
   const datasets = buildDatasets(filtered, { xKey, yKey, sizeByHeight, colorBy });
@@ -101,15 +101,26 @@ export function renderChart({ data, xKey, yKey, sizeByHeight, colorBy, chartRef,
     height_in: 'Height (in)'
   };
 
-  const [minX, maxX] = computeDomain(filtered, xKey);
-  const [minY, maxY] = computeDomain(filtered, yKey);
+  // Compute bounds from currently visible data and pad the top end; fix origin at 0,0
+  const [minXData, maxXData] = computeDomain(filtered, xKey);
+  const [minYData, maxYData] = computeDomain(filtered, yKey);
+  const rangeX = Math.max(1, (isFinite(maxXData) ? maxXData : 1) - 0);
+  const rangeY = Math.max(1, (isFinite(maxYData) ? maxYData : 1) - 0);
+  const padX = Math.max(1, rangeX * 0.05);
+  const padY = Math.max(1, rangeY * 0.05);
+  const minX = 0;
+  const minY = 0;
+  const maxX = Math.max(1, isFinite(maxXData) ? maxXData : 1) + padX;
+  const maxY = Math.max(1, isFinite(maxYData) ? maxYData : 1) + padY;
 
   const cfg = {
     type: 'scatter',
-    data: { datasets },
+    data: { datasets: datasets.map(ds => ({ ...ds, clip: false })) },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: false,
+      parsing: false,
       plugins: {
         legend: { position: 'top' },
         tooltip: {
@@ -128,8 +139,13 @@ export function renderChart({ data, xKey, yKey, sizeByHeight, colorBy, chartRef,
         }
       },
       scales: {
-        x: { bounds: 'data', min: minX, max: maxX, title: { display: true, text: labelMap[xKey] } },
-        y: { bounds: 'data', min: minY, max: maxY, title: { display: true, text: labelMap[yKey] } }
+        x: { type: 'linear', min: minX, max: maxX, title: { display: true, text: labelMap[xKey] } },
+        y: { type: 'linear', min: minY, max: maxY, title: { display: true, text: labelMap[yKey] } }
+      },
+      elements: {
+        point: {
+          hitRadius: 6
+        }
       }
     }
   };
