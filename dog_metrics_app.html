@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dog Metrics Plotter</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #e5e7eb; padding: 0.5rem; text-align: left; }
+    th { background: #f3f4f6; }
+    .chip { display:inline-block; padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div class="max-w-6xl mx-auto p-6 space-y-6">
+    <header class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold">Dog Metrics Plotter</h1>
+        <p class="text-sm text-gray-600">Add new entries and visualize relationships. Units: Weight (lbs), Height (in), Age (weeks).</p>
+      </div>
+      <div class="flex gap-2">
+        <button id="exportCsvBtn" class="px-3 py-2 rounded-xl bg-white border hover:bg-gray-50">Export CSV</button>
+        <button id="resetBtn" class="px-3 py-2 rounded-xl bg-white border hover:bg-gray-50">Reset to Original</button><input type="file" id="importFile" accept=".csv" class="hidden"><button id="importBtn" class="px-3 py-2 rounded-xl bg-white border hover:bg-gray-50">Import CSV</button>
+      </div>
+    </header>
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="md:col-span-1 space-y-4">
+        <div class="bg-white rounded-2xl shadow p-4">
+          <h2 class="font-semibold mb-3">Chart Controls</h2><p class="text-xs text-gray-500 mb-2">Use Import CSV to load existing data if none is shown.</p>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="text-sm">X-Axis
+              <select id="xAxis" class="w-full mt-1 border rounded-md p-2">
+                <option value="age_weeks" selected>Age (weeks)</option>
+                <option value="weight_lbs">Weight (lbs)</option>
+                <option value="height_in">Height (in)</option>
+              </select>
+            </label>
+            <label class="text-sm">Y-Axis
+              <select id="yAxis" class="w-full mt-1 border rounded-md p-2">
+                <option value="weight_lbs" selected>Weight (lbs)</option>
+                <option value="age_weeks">Age (weeks)</option>
+                <option value="height_in">Height (in)</option>
+              </select>
+            </label>
+            <label class="text-sm col-span-2 flex items-center gap-2">
+              <input id="sizeByHeight" type="checkbox" class="h-4 w-4">
+              <span>Size points by Height (in)</span>
+            </label>
+            <label class="text-sm col-span-2">Filter by Sex
+              <select id="sexFilter" class="w-full mt-1 border rounded-md p-2">
+                <option value="ALL" selected>All</option>
+                <option value="F">Female (F)</option>
+                <option value="M">Male (M)</option>
+                <option value="OTHER">Other/Unspecified</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow p-4">
+          <h2 class="font-semibold mb-3">Add Entry</h2>
+          <form id="addForm" class="grid grid-cols-2 gap-3">
+            <label class="text-sm">Weight (lbs)
+              <input name="weight_lbs" type="number" step="0.01" class="w-full mt-1 border rounded-md p-2" placeholder="e.g., 25.3">
+            </label>
+            <label class="text-sm">Age (weeks)
+              <input name="age_weeks" type="number" step="0.01" class="w-full mt-1 border rounded-md p-2" placeholder="e.g., 14">
+            </label>
+            <label class="text-sm">Height (in)
+              <input name="height_in" type="number" step="0.01" class="w-full mt-1 border rounded-md p-2" placeholder="e.g., 18.5">
+            </label>
+            <label class="text-sm">Sex
+              <select name="sex" class="w-full mt-1 border rounded-md p-2">
+                <option value="">Unspecified</option>
+                <option value="F">F</option>
+                <option value="M">M</option>
+              </select>
+            </label>
+            <label class="text-sm col-span-2">Name
+              <input name="name" type="text" class="w-full mt-1 border rounded-md p-2" placeholder="Optional">
+            </label>
+            <div class="col-span-2 flex items-center gap-2">
+              <button class="px-3 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700" type="submit">Add</button>
+              <span class="text-xs text-gray-500">New entries are saved to your browser (localStorage).</span>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="md:col-span-2 bg-white rounded-2xl shadow p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-semibold">Plot</h2>
+          <div class="text-xs text-gray-500">Showing: <span id="summaryCount">0</span> points</div>
+        </div>
+        <div id="chartWrap" class="w-full" style="height:420px;"><canvas id="chart"></canvas></div>
+        <div class="mt-3 text-xs text-gray-500">
+          Tip: Switch axes from the controls. Toggle "Size points by Height" to emphasize taller dogs.
+        </div>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold">Data</h2>
+        <div class="text-xs text-gray-500">Click column headers to sort.</div>
+      </div>
+      <div class="overflow-x-auto">
+        <table id="dataTable">
+          <thead>
+            <tr>
+              <th data-col="weight_lbs" class="cursor-pointer">Weight (lbs)</th>
+              <th data-col="age_weeks" class="cursor-pointer">Age (weeks)</th>
+              <th data-col="height_in" class="cursor-pointer">Height (in)</th>
+              <th data-col="sex" class="cursor-pointer">Sex</th>
+              <th data-col="name" class="cursor-pointer">Name</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="text-center text-xs text-gray-500">
+      Generated from your spreadsheet. Local edits persist in your browser. Use "Export CSV" to save your updates.
+    </footer>
+  </div>
+
+  <script>
+    const ORIGINAL_DATA = [{"weight_lbs": 11.3, "age_weeks": 14, "sex": "F", "height_in": 14.75, "Name": "Alice (Sunera, to add registered name)"}, {"weight_lbs": 13.3, "age_weeks": 19, "sex": "F", "height_in": 16.5, "Name": "Alice (Sunera, to add registered name)"}, {"weight_lbs": 14.0, "age_weeks": 22, "sex": "F", "height_in": 16.75, "Name": "Alice (Sunera, to add registered name)"}, {"weight_lbs": 14.8, "age_weeks": 24, "sex": "F", "height_in": 17.0, "Name": "Alice (Sunera, to add registered name)"}, {"weight_lbs": 16.0, "age_weeks": 28, "sex": "F", "height_in": 18.0, "Name": "Alice (Sunera, to add registered name)"}, {"weight_lbs": 26.5, "age_weeks": 35, "sex": "F", "height_in": 20.5, "Name": "Allagante Bold and Beautiful"}, {"weight_lbs": 28.0, "age_weeks": 416, "sex": "F", "height_in": 21.5, "Name": "Allagante Samar Navabi"}, {"weight_lbs": 21.0, "age_weeks": 22, "sex": "F", "height_in": 18.0, "Name": "Amethyst Edgedancer @ Alloy"}, {"weight_lbs": 30.8, "age_weeks": 156, "sex": "F", "height_in": 21.5, "Name": "Amethyst Indigo Girl"}, {"weight_lbs": 22.0, "age_weeks": 19, "sex": "F", "height_in": 18.25, "Name": "Amethyst Luminous Flux @Alloy"}, {"weight_lbs": 14.75, "age_weeks": 11, "sex": "M", "height_in": NaN, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 16.8, "age_weeks": 12, "sex": "M", "height_in": 15.5, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 17.0, "age_weeks": 13, "sex": "M", "height_in": NaN, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 19.4, "age_weeks": 14, "sex": "M", "height_in": 16.5, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 22.4, "age_weeks": 15, "sex": "M", "height_in": 16.75, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 24.4, "age_weeks": 17, "sex": "M", "height_in": 17.75, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 25.4, "age_weeks": 17, "sex": "M", "height_in": 18.25, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 27.6, "age_weeks": 17, "sex": "M", "height_in": 19.0, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 29.0, "age_weeks": 19, "sex": "M", "height_in": 20.0, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 29.0, "age_weeks": 19, "sex": "M", "height_in": 19.2, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 30.6, "age_weeks": 22, "sex": "M", "height_in": 20.2, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 32.2, "age_weeks": 22, "sex": "M", "height_in": 20.5, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 33.6, "age_weeks": 22, "sex": "M", "height_in": 21.0, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 35.0, "age_weeks": 24, "sex": "M", "height_in": 21.2, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 36.6, "age_weeks": 24, "sex": "M", "height_in": 21.5, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 36.6, "age_weeks": 26, "sex": "M", "height_in": 21.6, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 38.6, "age_weeks": 26, "sex": "M", "height_in": 21.75, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 39.2, "age_weeks": 28, "sex": "M", "height_in": 22.25, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 39.2, "age_weeks": 28, "sex": "M", "height_in": 22.5, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 40.4, "age_weeks": 30, "sex": "M", "height_in": 22.5, "Name": "Amethyst Rhythm of War"}, {"weight_lbs": 10.0, "age_weeks": 11, "sex": "M", "height_in": NaN, "Name": "Artemis Sun Dancer (pending reg)"}, {"weight_lbs": 24.0, "age_weeks": 24, "sex": "M", "height_in": NaN, "Name": "Artemis Sun Dancer (pending reg)"}, {"weight_lbs": 26.0, "age_weeks": 26, "sex": "M", "height_in": NaN, "Name": "Artemis Sun Dancer (pending reg)"}, {"weight_lbs": 29.0, "age_weeks": 35, "sex": "M", "height_in": NaN, "Name": "Artemis Sun Dancer (pending reg)"}, {"weight_lbs": 16.9, "age_weeks": 17, "sex": "M", "height_in": NaN, "Name": "Attaway Jaguarundi"}, {"weight_lbs": 30.8, "age_weeks": 39, "sex": "M", "height_in": NaN, "Name": "Attaway Jaguarundi"}, {"weight_lbs": 36.0, "age_weeks": 364, "sex": "M", "height_in": 23.0, "Name": "Attaway Jaguarundi"}, {"weight_lbs": 35.0, "age_weeks": 78, "sex": "F", "height_in": NaN, "Name": "Attaway Running with the Night"}, {"weight_lbs": 11.8, "age_weeks": 9, "sex": "F", "height_in": NaN, "Name": "Attaway Running with the Night"}, {"weight_lbs": 12.0, "age_weeks": 11, "sex": "F", "height_in": NaN, "Name": "Attaway Running with the Night"}, {"weight_lbs": 20.0, "age_weeks": 15, "sex": "F", "height_in": NaN, "Name": "Attaway Running with the Night"}, {"weight_lbs": 28.0, "age_weeks": 19, "sex": "F", "height_in": 19.5, "Name": "Attaway Running with the Night"}, {"weight_lbs": 29.3, "age_weeks": 22, "sex": "F", "height_in": 20.5, "Name": "Attaway Running with the Night"}, {"weight_lbs": 31.0, "age_weeks": 26, "sex": "F", "height_in": NaN, "Name": "Attaway Running with the Night"}, {"weight_lbs": 34.0, "age_weeks": 35, "sex": "F", "height_in": NaN, "Name": "Attaway Running with the Night"}, {"weight_lbs": 36.0, "age_weeks": 156, "sex": "F", "height_in": 21.5, "Name": "Attaway Running with the Night"}, {"weight_lbs": 19.5, "age_weeks": 24, "sex": "F", "height_in": 19.0, "Name": "Avalon Last Impression"}, {"weight_lbs": 23.8, "age_weeks": 28, "sex": "F", "height_in": NaN, "Name": "Avalon Last Impression"}, {"weight_lbs": 11.8, "age_weeks": 10, "sex": "M", "height_in": NaN, "Name": "Ávila Sir Prize"}, {"weight_lbs": 15.4, "age_weeks": 12, "sex": "M", "height_in": NaN, "Name": "Ávila Sir Prize"}, {"weight_lbs": 17.2, "age_weeks": 13, "sex": "M", "height_in": NaN, "Name": "Ávila Sir Prize"}, {"weight_lbs": 19.8, "age_weeks": 14, "sex": "M", "height_in": NaN, "Name": "Ávila Sir Prize"}, {"weight_lbs": 21.6, "age_weeks": 15, "sex": "M", "height_in": NaN, "Name": "Ávila Sir Prize"}, {"weight_lbs": 24.8, "age_weeks": 17, "sex": "M", "height_in": NaN, "Name": "Ávila Sir Prize"}, {"weight_lbs": 29.0, "age_weeks": 19, "sex": "M", "height_in": NaN, "Name": "Ávila Sir Prize"}, {"weight_lbs": 45.0, "age_weeks": 104, "sex": "M", "height_in": 24.75, "Name": "Broadway Howls Moving Castle"}, {"weight_lbs": 13.0, "age_weeks": 9, "sex": "F", "height_in": NaN, "Name": "Clayborn's Chupacabra"}, {"weight_lbs": 15.0, "age_weeks": 10, "sex": "F", "height_in": NaN, "Name": "Clayborn's Chupacabra"}, {"weight_lbs": 15.6, "age_weeks": 15, "sex": "F", "height_in": 16.0, "Name": "Clayborn's Chupacabra"}, {"weight_lbs": 19.6, "age_weeks": 17, "sex": "F", "height_in": 17.0, "Name": "Clayborn's Chupacabra"}, {"weight_lbs": 19.6, "age_weeks": 19, "sex": "F", "height_in": NaN, "Name": "Clayborn's Chupacabra"}, {"weight_lbs": 22.6, "age_weeks": 26, "sex": "F", "height_in": 20.0, "Name": "Clayborn's Chupacabra"}, {"weight_lbs": 23.8, "age_weeks": 32, "sex": "F", "height_in": 21.0, "Name": "Clayborn's Chupacabra"}, {"weight_lbs": 24.4, "age_weeks": 37, "sex": "F", "height_in": NaN, "Name": "Clayborn's Chupacabra"}, {"weight_lbs": 25.6, "age_weeks": 39, "sex": "F", "height_in": NaN, "Name": "Clayborn's Chupacabra"}, {"weight_lbs": 25.0, "age_weeks": 43, "sex": "F", "height_in": NaN, "Name": "Clayborn's Chupacabra"}, {"weight_lbs": 26.4, "age_weeks": 48, "sex": "F", "height_in": NaN, "Name": "Clayborn's Chupacabra"}, {"weight_lbs": 26.0, "age_weeks": 50, "sex": "F", "height_in": 21.0, "Name": "Clayborn's Chupacabra"}, {"weight_lbs": 31.0, "age_weeks": 56, "sex": "F", "height_in": 22.5, "Name": "CSB Agent Little Nellie"}, {"weight_lbs": 11.0, "age_weeks": 11, "sex": "F", "height_in": NaN, "Name": "CSB Agent Little Nellie"}, {"weight_lbs": 12.0, "age_weeks": 12, "sex": "F", "height_in": 15.0, "Name": "CSB Agent Little Nellie"}, {"weight_lbs": 12.9, "age_weeks": 13, "sex": "F", "height_in": NaN, "Name": "CSB Agent Little Nellie"}, {"weight_lbs": 13.6, "age_weeks": 14, "sex": "F", "height_in": NaN, "Name": "CSB Agent Little Nellie"}, {"weight_lbs": 15.6, "age_weeks": 15, "sex": "F", "height_in": NaN, "Name": "CSB Agent Little Nellie"}, {"weight_lbs": 17.2, "age_weeks": 17, "sex": "F", "height_in": NaN, "Name": "CSB Agent Little Nellie"}, {"weight_lbs": 18.8, "age_weeks": 19, "sex": "F", "height_in": 19.0, "Name": "CSB Agent Little Nellie"}, {"weight_lbs": 21.6, "age_weeks": 22, "sex": "F", "height_in": 20.5, "Name": "CSB Agent Little Nellie"}, {"weight_lbs": NaN, "age_weeks": 26, "sex": "F", "height_in": 21.5, "Name": "CSB Agent Little Nellie"}, {"weight_lbs": 28.5, "age_weeks": 30, "sex": "F", "height_in": 21.5, "Name": "CSB Agent Little Nellie"}, {"weight_lbs": 32.0, "age_weeks": 104, "sex": "F", "height_in": 22.75, "Name": "CSB Agent Little Nellie"}, {"weight_lbs": 44.0, "age_weeks": 52, "sex": "M", "height_in": NaN, "Name": "Empyrean Cut to the Chase"}, {"weight_lbs": 26.0, "age_weeks": 17, "sex": "M", "height_in": 21.0, "Name": "Empyrean Cut to the Chase"}, {"weight_lbs": 32.0, "age_weeks": 22, "sex": "M", "height_in": 21.0, "Name": "Empyrean Cut to the Chase"}, {"weight_lbs": 38.0, "age_weeks": 26, "sex": "M", "height_in": 22.5, "Name": "Empyrean Cut to the Chase"}, {"weight_lbs": 40.0, "age_weeks": 30, "sex": "M", "height_in": NaN, "Name": "Empyrean Cut to the Chase"}, {"weight_lbs": 43.0, "age_weeks": 35, "sex": "M", "height_in": NaN, "Name": "Empyrean Cut to the Chase"}, {"weight_lbs": 18.4, "age_weeks": 17, "sex": "M", "height_in": NaN, "Name": "Heirlooms Heart of Draco"}, {"weight_lbs": 20.0, "age_weeks": 22, "sex": "M", "height_in": NaN, "Name": "Heirlooms Heart of Draco"}, {"weight_lbs": 24.5, "age_weeks": 26, "sex": "M", "height_in": 20.0, "Name": "Heirlooms Heart of Draco"}, {"weight_lbs": 28.5, "age_weeks": 35, "sex": "M", "height_in": 21.0, "Name": "Heirlooms Heart of Draco"}, {"weight_lbs": 29.0, "age_weeks": 37, "sex": "M", "height_in": 21.0, "Name": "Heirlooms Heart of Draco"}, {"weight_lbs": 29.0, "age_weeks": 56, "sex": "M", "height_in": 21.5, "Name": "Heirlooms Heart of Draco"}, {"weight_lbs": 10.8, "age_weeks": 12, "sex": "F", "height_in": NaN, "Name": "Heirlooms Maleficent @Aviator"}, {"weight_lbs": 11.8, "age_weeks": 14, "sex": "F", "height_in": NaN, "Name": "Heirlooms Maleficent @Aviator"}, {"weight_lbs": 14.4, "age_weeks": 17, "sex": "F", "height_in": NaN, "Name": "Heirlooms Maleficent @Aviator"}, {"weight_lbs": 16.4, "age_weeks": 22, "sex": "F", "height_in": 19.5, "Name": "Heirlooms Maleficent @Aviator"}, {"weight_lbs": 19.4, "age_weeks": 26, "sex": "F", "height_in": 20.0, "Name": "Heirlooms Maleficent @Aviator"}, {"weight_lbs": 23.0, "age_weeks": 39, "sex": "F", "height_in": NaN, "Name": "Heirlooms Maleficent @Aviator"}, {"weight_lbs": 24.0, "age_weeks": 48, "sex": "F", "height_in": NaN, "Name": "Heirlooms Maleficent @Aviator"}, {"weight_lbs": 13.9, "age_weeks": 14, "sex": "F", "height_in": 14.5, "Name": "Hunter's Run Fooled U 2 WNS"}, {"weight_lbs": 14.5, "age_weeks": 15, "sex": "F", "height_in": 15.5, "Name": "Hunter's Run Fooled U 2 WNS"}, {"weight_lbs": 15.2, "age_weeks": 17, "sex": "F", "height_in": 15.75, "Name": "Hunter's Run Fooled U 2 WNS"}, {"weight_lbs": 17.1, "age_weeks": 19, "sex": "F", "height_in": 16.75, "Name": "Hunter's Run Fooled U 2 WNS"}, {"weight_lbs": 32.0, "age_weeks": 17, "sex": "M", "height_in": NaN, "Name": "Imperial Topaz Pumpernickel"}, {"weight_lbs": 62.0, "age_weeks": 91, "sex": "M", "height_in": NaN, "Name": "Imperial Topaz Pumpernickel"}, {"weight_lbs": 12.01, "age_weeks": 10, "sex": "M", "height_in": NaN, "Name": "Intriga Pilot Episode"}, {"weight_lbs": 12.58, "age_weeks": 11, "sex": "M", "height_in": NaN, "Name": "Intriga Pilot Episode"}, {"weight_lbs": 13.56, "age_weeks": 12, "sex": "M", "height_in": NaN, "Name": "Intriga Pilot Episode"}, {"weight_lbs": 15.4, "age_weeks": 13, "sex": "M", "height_in": NaN, "Name": "Intriga Pilot Episode"}, {"weight_lbs": 16.82, "age_weeks": 14, "sex": "M", "height_in": NaN, "Name": "Intriga Pilot Episode"}, {"weight_lbs": 18.0, "age_weeks": 15, "sex": "M", "height_in": NaN, "Name": "Intriga Pilot Episode"}, {"weight_lbs": 23.4, "age_weeks": 19, "sex": "M", "height_in": NaN, "Name": "Intriga Pilot Episode"}, {"weight_lbs": 27.5, "age_weeks": 22, "sex": "M", "height_in": NaN, "Name": "Intriga Pilot Episode"}, {"weight_lbs": 29.0, "age_weeks": 24, "sex": "M", "height_in": NaN, "Name": "Intriga Pilot Episode"}, {"weight_lbs": 31.6, "age_weeks": 26, "sex": "M", "height_in": 21.5, "Name": "Intriga Pilot Episode"}, {"weight_lbs": 38.2, "age_weeks": 39, "sex": "M", "height_in": NaN, "Name": "Intriga Pilot Episode"}, {"weight_lbs": 11.9, "age_weeks": 8, "sex": "M", "height_in": NaN, "Name": "JusRics Aramis"}, {"weight_lbs": 22.0, "age_weeks": 12, "sex": "M", "height_in": NaN, "Name": "JusRics Aramis"}, {"weight_lbs": 23.2625, "age_weeks": 14, "sex": "M", "height_in": 17.0, "Name": "JusRics Aramis"}, {"weight_lbs": 28.2, "age_weeks": 17, "sex": "M", "height_in": NaN, "Name": "JusRics Aramis"}, {"weight_lbs": 36.0, "age_weeks": 39, "sex": "M", "height_in": NaN, "Name": "Kinobi You Win Again"}, {"weight_lbs": 41.0, "age_weeks": 91, "sex": "M", "height_in": NaN, "Name": "Kinobi You Win Again"}, {"weight_lbs": 21.4, "age_weeks": 19, "sex": "M", "height_in": NaN, "Name": "Kinobi-Winsome's I Feel Lucky"}, {"weight_lbs": NaN, "age_weeks": 24, "sex": "M", "height_in": 20.25, "Name": "Kinobi-Winsome's I Feel Lucky"}, {"weight_lbs": NaN, "age_weeks": 26, "sex": "M", "height_in": 21.0, "Name": "Kinobi-Winsome's I Feel Lucky"}, {"weight_lbs": 12.8, "age_weeks": 10, "sex": "M", "height_in": NaN, "Name": "MoonRiver's Some Like It Hot"}, {"weight_lbs": 14.2, "age_weeks": 12, "sex": "M", "height_in": NaN, "Name": "MoonRiver's Some Like It Hot"}, {"weight_lbs": 11.2, "age_weeks": 11, "sex": "M", "height_in": NaN, "Name": "NavyRose's Poseidon's Atlantis"}, {"weight_lbs": 17.0, "age_weeks": 13, "sex": "M", "height_in": NaN, "Name": "NavyRose's Poseidon's Atlantis"}, {"weight_lbs": 19.4, "age_weeks": 15, "sex": "M", "height_in": NaN, "Name": "NavyRose's Poseidon's Atlantis"}, {"weight_lbs": 21.1, "age_weeks": 17, "sex": "M", "height_in": NaN, "Name": "NavyRose's Poseidon's Atlantis"}, {"weight_lbs": 25.0, "age_weeks": 22, "sex": "M", "height_in": NaN, "Name": "NavyRose's Poseidon's Atlantis"}, {"weight_lbs": 11.0, "age_weeks": 9, "sex": "M", "height_in": 12.5, "Name": "Obsidian Shishalden"}, {"weight_lbs": 12.0, "age_weeks": 10, "sex": "M", "height_in": 13.0, "Name": "Obsidian Shishalden"}, {"weight_lbs": 14.0, "age_weeks": 11, "sex": "M", "height_in": 15.5, "Name": "Obsidian Shishalden"}, {"weight_lbs": 15.5, "age_weeks": 12, "sex": "M", "height_in": 16.5, "Name": "Obsidian Shishalden"}, {"weight_lbs": 16.5, "age_weeks": 13, "sex": "M", "height_in": 17.5, "Name": "Obsidian Shishalden"}, {"weight_lbs": 20.0, "age_weeks": 14, "sex": "M", "height_in": 18.0, "Name": "Obsidian Shishalden"}, {"weight_lbs": 21.0, "age_weeks": 15, "sex": "M", "height_in": 19.0, "Name": "Obsidian Shishalden"}, {"weight_lbs": 22.5, "age_weeks": 17, "sex": "M", "height_in": 19.75, "Name": "Obsidian Shishalden"}, {"weight_lbs": 25.0, "age_weeks": 19, "sex": "M", "height_in": 20.5, "Name": "Obsidian Shishalden"}, {"weight_lbs": 28.0, "age_weeks": 22, "sex": "M", "height_in": 20.75, "Name": "Obsidian Shishalden"}, {"weight_lbs": 30.0, "age_weeks": 24, "sex": "M", "height_in": 21.75, "Name": "Obsidian Shishalden"}, {"weight_lbs": 31.0, "age_weeks": 26, "sex": "M", "height_in": 22.0, "Name": "Obsidian Shishalden"}, {"weight_lbs": 33.0, "age_weeks": 30, "sex": "M", "height_in": 23.5, "Name": "Obsidian Shishalden"}, {"weight_lbs": 10.0, "age_weeks": 8, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 12.2, "age_weeks": 11, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 14.6, "age_weeks": 12, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 15.0, "age_weeks": 13, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 16.6, "age_weeks": 14, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 17.6, "age_weeks": 15, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 20.0, "age_weeks": 17, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 23.0, "age_weeks": 19, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 25.0, "age_weeks": 22, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 27.4, "age_weeks": 24, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 28.8, "age_weeks": 26, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 31.3, "age_weeks": 28, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 32.4, "age_weeks": 30, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 34.2, "age_weeks": 32, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 36.2, "age_weeks": 35, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 36.8, "age_weeks": 37, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 37.0, "age_weeks": 39, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 38.4, "age_weeks": 41, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 38.4, "age_weeks": 43, "sex": "M", "height_in": NaN, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 38.2, "age_weeks": 48, "sex": "M", "height_in": 23.0, "Name": "Perla John Henry of Siendo"}, {"weight_lbs": 39.0, "age_weeks": 69, "sex": "M", "height_in": 24.0, "Name": "Regalant Allstar"}, {"weight_lbs": 6.0, "age_weeks": 8, "sex": "M", "height_in": NaN, "Name": "Regalant Orzo"}, {"weight_lbs": 8.7, "age_weeks": 10, "sex": "M", "height_in": NaN, "Name": "Regalant Orzo"}, {"weight_lbs": 10.1, "age_weeks": 11, "sex": "M", "height_in": NaN, "Name": "Regalant Orzo"}, {"weight_lbs": 10.4, "age_weeks": 13, "sex": "M", "height_in": NaN, "Name": "Regalant Orzo"}, {"weight_lbs": 15.2, "age_weeks": 17, "sex": "M", "height_in": NaN, "Name": "Regalant Orzo"}, {"weight_lbs": 16.7, "age_weeks": 19, "sex": "M", "height_in": NaN, "Name": "Regalant Orzo"}, {"weight_lbs": 19.8, "age_weeks": 22, "sex": "M", "height_in": 21.5, "Name": "Regalant Orzo"}, {"weight_lbs": 24.9, "age_weeks": 32, "sex": "M", "height_in": 22.0, "Name": "Regalant Orzo"}, {"weight_lbs": 24.9, "age_weeks": 52, "sex": "M", "height_in": 22.25, "Name": "Regalant Orzo"}, {"weight_lbs": 30.2, "age_weeks": 61, "sex": "M", "height_in": 22.25, "Name": "Regalant Orzo"}, {"weight_lbs": 30.4, "age_weeks": 69, "sex": "M", "height_in": 22.25, "Name": "Regalant Orzo"}, {"weight_lbs": 30.5, "age_weeks": 82, "sex": "M", "height_in": 22.25, "Name": "Regalant Orzo"}, {"weight_lbs": 31.5, "age_weeks": 156, "sex": "M", "height_in": 22.25, "Name": "Regalant Orzo"}, {"weight_lbs": 8.4, "age_weeks": 9, "sex": "M", "height_in": NaN, "Name": "Satomi Winsome Wishful Tempest"}, {"weight_lbs": 11.2, "age_weeks": 10, "sex": "M", "height_in": NaN, "Name": "Satomi Winsome Wishful Tempest"}, {"weight_lbs": 12.3, "age_weeks": 11, "sex": "M", "height_in": NaN, "Name": "Satomi Winsome Wishful Tempest"}, {"weight_lbs": 14.5, "age_weeks": 12, "sex": "M", "height_in": NaN, "Name": "Satomi Winsome Wishful Tempest"}, {"weight_lbs": 15.6, "age_weeks": 13, "sex": "M", "height_in": NaN, "Name": "Satomi Winsome Wishful Tempest"}, {"weight_lbs": 17.4, "age_weeks": 14, "sex": "M", "height_in": NaN, "Name": "Satomi Winsome Wishful Tempest"}, {"weight_lbs": NaN, "age_weeks": 15, "sex": "M", "height_in": NaN, "Name": "Satomi Winsome Wishful Tempest"}, {"weight_lbs": NaN, "age_weeks": 17, "sex": "M", "height_in": NaN, "Name": "Satomi Winsome Wishful Tempest"}, {"weight_lbs": 8.5, "age_weeks": 8, "sex": "M", "height_in": NaN, "Name": "Satsuma Demetra Chiparus"}, {"weight_lbs": 19.2, "age_weeks": 13, "sex": "M", "height_in": NaN, "Name": "Satsuma Demetra Chiparus"}, {"weight_lbs": 33.0, "age_weeks": 19, "sex": "M", "height_in": 21.0, "Name": "Satsuma Demetra Chiparus"}, {"weight_lbs": 19.2, "age_weeks": 14, "sex": "M", "height_in": 16.75, "Name": "Satsuma Erte"}, {"weight_lbs": 26.6, "age_weeks": 17, "sex": "M", "height_in": 19.0, "Name": "Satsuma Erte"}, {"weight_lbs": 35.0, "age_weeks": 22, "sex": "M", "height_in": 21.75, "Name": "Satsuma Erte"}, {"weight_lbs": 39.4, "age_weeks": 26, "sex": "M", "height_in": 23.5, "Name": "Satsuma Erte"}, {"weight_lbs": 42.6, "age_weeks": 30, "sex": "M", "height_in": 23.75, "Name": "Satsuma Erte"}, {"weight_lbs": 44.2, "age_weeks": 35, "sex": "M", "height_in": NaN, "Name": "Satsuma Erte"}, {"weight_lbs": 44.8, "age_weeks": 39, "sex": "M", "height_in": 24.5, "Name": "Satsuma Erte"}, {"weight_lbs": 47.8, "age_weeks": 65, "sex": "M", "height_in": 24.75, "Name": "Satsuma Erte"}, {"weight_lbs": 49.6, "age_weeks": 104, "sex": "M", "height_in": 24.75, "Name": "Satsuma Erte"}, {"weight_lbs": 38.0, "age_weeks": 156, "sex": "M", "height_in": 23.5, "Name": "Satsuma Last Christmas"}, {"weight_lbs": 10.0, "age_weeks": 10, "sex": "M", "height_in": NaN, "Name": "Sigil Buddha's Hand Lemon"}, {"weight_lbs": 12.9, "age_weeks": 12, "sex": "M", "height_in": NaN, "Name": "Sigil Buddha's Hand Lemon"}, {"weight_lbs": 14.0, "age_weeks": 13, "sex": "M", "height_in": NaN, "Name": "Sigil Buddha's Hand Lemon"}, {"weight_lbs": 17.9, "age_weeks": 17, "sex": "M", "height_in": NaN, "Name": "Sigil Buddha's Hand Lemon"}, {"weight_lbs": 23.6, "age_weeks": 22, "sex": "M", "height_in": 21.5, "Name": "Sigil Buddha's Hand Lemon"}, {"weight_lbs": 28.1, "age_weeks": 24, "sex": "M", "height_in": NaN, "Name": "Sigil Buddha's Hand Lemon"}, {"weight_lbs": 31.0, "age_weeks": 26, "sex": "M", "height_in": NaN, "Name": "Sigil Buddha's Hand Lemon"}, {"weight_lbs": 34.7, "age_weeks": 35, "sex": "M", "height_in": NaN, "Name": "Sigil Buddha's Hand Lemon"}, {"weight_lbs": 35.2, "age_weeks": 37, "sex": "M", "height_in": NaN, "Name": "Sigil Buddha's Hand Lemon"}, {"weight_lbs": 35.6, "age_weeks": 45, "sex": "M", "height_in": NaN, "Name": "Sigil Buddha's Hand Lemon"}, {"weight_lbs": 36.8, "age_weeks": 48, "sex": "M", "height_in": NaN, "Name": "Sigil Buddha's Hand Lemon"}, {"weight_lbs": 37.4, "age_weeks": 52, "sex": "M", "height_in": 23.0, "Name": "Sigil Buddha's Hand Lemon"}, {"weight_lbs": NaN, "age_weeks": 56, "sex": "M", "height_in": 23.5, "Name": "Sigil Buddha's Hand Lemon"}, {"weight_lbs": 10.0, "age_weeks": 11, "sex": "M", "height_in": NaN, "Name": "Sigil Yen Ben Lemon"}, {"weight_lbs": 13.0, "age_weeks": 14, "sex": "M", "height_in": NaN, "Name": "Sigil Yen Ben Lemon"}, {"weight_lbs": 15.4, "age_weeks": 17, "sex": "M", "height_in": NaN, "Name": "Sigil Yen Ben Lemon"}, {"weight_lbs": 21.6, "age_weeks": 24, "sex": "M", "height_in": NaN, "Name": "Sigil Yen Ben Lemon"}, {"weight_lbs": 23.0, "age_weeks": 26, "sex": "M", "height_in": NaN, "Name": "Sigil Yen Ben Lemon"}, {"weight_lbs": 26.0, "age_weeks": 30, "sex": "M", "height_in": NaN, "Name": "Sigil Yen Ben Lemon"}, {"weight_lbs": 29.0, "age_weeks": 35, "sex": "M", "height_in": 22.0, "Name": "Sigil Yen Ben Lemon"}, {"weight_lbs": 30.0, "age_weeks": 43, "sex": "M", "height_in": 22.0, "Name": "Sigil Yen Ben Lemon"}, {"weight_lbs": 30.0, "age_weeks": 52, "sex": "M", "height_in": NaN, "Name": "Sigil Yen Ben Lemon"}, {"weight_lbs": 30.0, "age_weeks": 61, "sex": "M", "height_in": 22.0, "Name": "Sigil Yen Ben Lemon"}, {"weight_lbs": 11.8, "age_weeks": 10, "sex": "M", "height_in": NaN, "Name": "Sundance Fly By"}, {"weight_lbs": 14.4, "age_weeks": 11, "sex": "M", "height_in": 15.0, "Name": "Sundance Fly By"}, {"weight_lbs": 16.0, "age_weeks": 12, "sex": "M", "height_in": 16.5, "Name": "Sundance Fly By"}, {"weight_lbs": 18.0, "age_weeks": 13, "sex": "M", "height_in": 17.0, "Name": "Sundance Fly By"}, {"weight_lbs": 19.0, "age_weeks": 14, "sex": "M", "height_in": 17.0, "Name": "Sundance Fly By"}, {"weight_lbs": 22.0, "age_weeks": 17, "sex": "M", "height_in": 19.0, "Name": "Sundance Fly By"}, {"weight_lbs": 26.0, "age_weeks": 19, "sex": "M", "height_in": 21.0, "Name": "Sundance Fly By"}, {"weight_lbs": NaN, "age_weeks": 22, "sex": "M", "height_in": NaN, "Name": "Sundance Fly By"}, {"weight_lbs": 11.5, "age_weeks": 10, "sex": "F", "height_in": NaN, "Name": "Sundance Halite"}, {"weight_lbs": 12.0, "age_weeks": 11, "sex": "F", "height_in": NaN, "Name": "Sundance Halite"}, {"weight_lbs": 13.2, "age_weeks": 12, "sex": "F", "height_in": NaN, "Name": "Sundance Halite"}, {"weight_lbs": 23.0, "age_weeks": 17, "sex": "F", "height_in": NaN, "Name": "Sundance Halite"}, {"weight_lbs": 28.2, "age_weeks": 22, "sex": "F", "height_in": 20.0, "Name": "Sundance Halite"}, {"weight_lbs": 32.0, "age_weeks": 26, "sex": "F", "height_in": 20.0, "Name": "Sundance Halite"}, {"weight_lbs": 38.0, "age_weeks": 39, "sex": "F", "height_in": 22.5, "Name": "Sundance Halite"}, {"weight_lbs": 19.7, "age_weeks": 104, "sex": "F", "height_in": 18.75, "Name": "Sunera's Vanishing Glass"}, {"weight_lbs": 16.6, "age_weeks": 12, "sex": "M", "height_in": NaN, "Name": "Talus-Whippet/Silken Diversity project"}, {"weight_lbs": 20.1, "age_weeks": 17, "sex": "M", "height_in": NaN, "Name": "Talus-Whippet/Silken Diversity project"}, {"weight_lbs": 18.0, "age_weeks": 15, "sex": "M", "height_in": NaN, "Name": "Wildmeadow Blaze the Trail"}, {"weight_lbs": 26.4, "age_weeks": 24, "sex": "M", "height_in": NaN, "Name": "WildRose Varekai"}, {"weight_lbs": 14.0, "age_weeks": 17, "sex": "F", "height_in": NaN, "Name": "Winsome’s Fosbury Flop"}, {"weight_lbs": 17.7, "age_weeks": 17, "sex": "M", "height_in": NaN, "Name": "Winsome’s Takeoff Angle"}, {"weight_lbs": 12.0, "age_weeks": 10, "sex": "M", "height_in": NaN, "Name": "Winsome's Argo Navis"}, {"weight_lbs": 19.2, "age_weeks": 15, "sex": "M", "height_in": NaN, "Name": "Winsome's Argo Navis"}, {"weight_lbs": 28.0, "age_weeks": 22, "sex": "M", "height_in": NaN, "Name": "Winsome's Argo Navis"}, {"weight_lbs": 32.0, "age_weeks": 28, "sex": "M", "height_in": NaN, "Name": "Winsome's Argo Navis"}, {"weight_lbs": 35.5, "age_weeks": 45, "sex": "M", "height_in": NaN, "Name": "Winsome's Argo Navis"}, {"weight_lbs": 36.8, "age_weeks": 48, "sex": "M", "height_in": NaN, "Name": "Winsome's Argo Navis"}, {"weight_lbs": 8.7, "age_weeks": 11, "sex": "M", "height_in": NaN, "Name": "Winsome's Bernoulli Equation"}, {"weight_lbs": 11.4, "age_weeks": 15, "sex": "M", "height_in": 15.0, "Name": "Winsome's Bernoulli Equation"}, {"weight_lbs": 21.2, "age_weeks": 24, "sex": "M", "height_in": 20.0, "Name": "Winsome's Bernoulli Equation"}, {"weight_lbs": 26.1, "age_weeks": 39, "sex": "M", "height_in": 20.5, "Name": "Winsome's Bernoulli Equation"}, {"weight_lbs": 18.0, "age_weeks": 17, "sex": "M", "height_in": NaN, "Name": "Winsome's Black Tusk"}, {"weight_lbs": 10.75, "age_weeks": 9, "sex": "M", "height_in": NaN, "Name": "Winsome's Faron Grasslands"}, {"weight_lbs": 13.5, "age_weeks": 11, "sex": "M", "height_in": NaN, "Name": "Winsome's Faron Grasslands"}, {"weight_lbs": 18.5, "age_weeks": 14, "sex": "M", "height_in": NaN, "Name": "Winsome's Faron Grasslands"}, {"weight_lbs": 7.1, "age_weeks": 10, "sex": "F", "height_in": NaN, "Name": "Winsome's First Ascent (Evie)"}, {"weight_lbs": 9.4, "age_weeks": 12, "sex": "F", "height_in": NaN, "Name": "Winsome's First Ascent (Evie)"}, {"weight_lbs": 11.6, "age_weeks": 14, "sex": "F", "height_in": NaN, "Name": "Winsome's First Ascent (Evie)"}, {"weight_lbs": 11.1, "age_weeks": 10, "sex": "F", "height_in": NaN, "Name": "Winsome's High Altitude"}, {"weight_lbs": 18.2, "age_weeks": 19, "sex": "F", "height_in": NaN, "Name": "Winsome's High Altitude"}, {"weight_lbs": 22.0, "age_weeks": 22, "sex": "F", "height_in": 20.0, "Name": "Winsome's High Altitude"}, {"weight_lbs": NaN, "age_weeks": 24, "sex": "F", "height_in": 20.5, "Name": "Winsome's High Altitude"}, {"weight_lbs": 28.1, "age_weeks": 28, "sex": "F", "height_in": NaN, "Name": "Winsome's High Altitude"}, {"weight_lbs": 10.0, "age_weeks": 9, "sex": "M", "height_in": NaN, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 11.8, "age_weeks": 10, "sex": "M", "height_in": NaN, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 12.6, "age_weeks": 11, "sex": "M", "height_in": 14.0, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 15.0, "age_weeks": 12, "sex": "M", "height_in": 16.0, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 16.6, "age_weeks": 13, "sex": "M", "height_in": 16.0, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 18.4, "age_weeks": 14, "sex": "M", "height_in": 17.0, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 20.6, "age_weeks": 15, "sex": "M", "height_in": 18.5, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 22.4, "age_weeks": 17, "sex": "M", "height_in": 19.0, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 25.8, "age_weeks": 19, "sex": "M", "height_in": 20.0, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 28.8, "age_weeks": 22, "sex": "M", "height_in": 21.0, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 32.6, "age_weeks": 24, "sex": "M", "height_in": 22.0, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 35.0, "age_weeks": 26, "sex": "M", "height_in": 22.5, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 38.0, "age_weeks": 28, "sex": "M", "height_in": 23.0, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 39.5, "age_weeks": 30, "sex": "M", "height_in": 23.25, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 41.0, "age_weeks": 32, "sex": "M", "height_in": 23.25, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 42.0, "age_weeks": 35, "sex": "M", "height_in": 23.5, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 44.0, "age_weeks": 39, "sex": "M", "height_in": 24.0, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 45.0, "age_weeks": 43, "sex": "M", "height_in": 24.25, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 46.0, "age_weeks": 48, "sex": "M", "height_in": 24.5, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 48.5, "age_weeks": 52, "sex": "M", "height_in": 25.0, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 49.0, "age_weeks": 56, "sex": "M", "height_in": 25.0, "Name": "Winsome's Knight Tour Problem"}, {"weight_lbs": 12.2, "age_weeks": 10, "sex": "F", "height_in": 13.0, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 14.5, "age_weeks": 11, "sex": "F", "height_in": 14.3, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 15.5, "age_weeks": 12, "sex": "F", "height_in": NaN, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 17.0, "age_weeks": 13, "sex": "F", "height_in": 16.0, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 18.9, "age_weeks": 14, "sex": "F", "height_in": 16.0, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 19.8, "age_weeks": 15, "sex": "F", "height_in": NaN, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 21.0, "age_weeks": 17, "sex": "F", "height_in": 17.0, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 23.0, "age_weeks": 17, "sex": "F", "height_in": 18.0, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 24.0, "age_weeks": 19, "sex": "F", "height_in": NaN, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 26.0, "age_weeks": 19, "sex": "F", "height_in": NaN, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 26.0, "age_weeks": 22, "sex": "F", "height_in": 19.0, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 27.0, "age_weeks": 22, "sex": "F", "height_in": 19.25, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 28.0, "age_weeks": 24, "sex": "F", "height_in": 19.5, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 30.5, "age_weeks": 26, "sex": "F", "height_in": 20.0, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 34.5, "age_weeks": 30, "sex": "F", "height_in": 21.5, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 35.0, "age_weeks": 35, "sex": "F", "height_in": 22.0, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 35.0, "age_weeks": 39, "sex": "F", "height_in": 22.0, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 35.0, "age_weeks": 43, "sex": "F", "height_in": 22.0, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 34.0, "age_weeks": 48, "sex": "F", "height_in": 22.0, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 37.0, "age_weeks": 52, "sex": "F", "height_in": 22.5, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 36.0, "age_weeks": 78, "sex": "F", "height_in": 22.5, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 36.0, "age_weeks": 87, "sex": "F", "height_in": 22.5, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 37.0, "age_weeks": 100, "sex": "F", "height_in": 22.5, "Name": "Winsome's Lomei Sky"}, {"weight_lbs": 34.0, "age_weeks": 208, "sex": "M", "height_in": 22.5, "Name": "Winsome's Macintosh"}, {"weight_lbs": 11.7, "age_weeks": 11, "sex": "M", "height_in": 14.0, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": NaN, "age_weeks": 12, "sex": "M", "height_in": 14.5, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 13.889, "age_weeks": 13, "sex": "M", "height_in": 15.5, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 14.3, "age_weeks": 14, "sex": "M", "height_in": 15.75, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 15.7, "age_weeks": 15, "sex": "M", "height_in": 16.0, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 17.9, "age_weeks": 17, "sex": "M", "height_in": 16.5, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 17.9, "age_weeks": 17, "sex": "M", "height_in": 17.0, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 19.8, "age_weeks": 17, "sex": "M", "height_in": 18.0, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 20.9, "age_weeks": 19, "sex": "M", "height_in": 18.25, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 21.0, "age_weeks": 19, "sex": "M", "height_in": 18.5, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 21.4, "age_weeks": 19, "sex": "M", "height_in": 19.0, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 24.0, "age_weeks": 22, "sex": "M", "height_in": 19.5, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 25.0, "age_weeks": 22, "sex": "M", "height_in": 19.5, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": NaN, "age_weeks": 24, "sex": "M", "height_in": 19.75, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 25.8, "age_weeks": 24, "sex": "M", "height_in": 19.75, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 25.8, "age_weeks": 26, "sex": "M", "height_in": 19.75, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 25.8, "age_weeks": 26, "sex": "M", "height_in": 20.0, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 27.6, "age_weeks": 28, "sex": "M", "height_in": 20.25, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 27.1, "age_weeks": 28, "sex": "M", "height_in": 20.75, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": NaN, "age_weeks": 30, "sex": "M", "height_in": 20.75, "Name": "Winsome's Pendulum Traverse"}, {"weight_lbs": 14.6, "age_weeks": 16, "sex": "F", "height_in": 15.875, "Name": "Winsome's Petronella"}, {"weight_lbs": 18.0, "age_weeks": 23, "sex": "F", "height_in": NaN, "Name": "Winsome's Petronella"}, {"weight_lbs": 22.0, "age_weeks": 27, "sex": "F", "height_in": 19.0, "Name": "Winsome's Petronella"}, {"weight_lbs": 27.0, "age_weeks": 312, "sex": "F", "height_in": 21.0, "Name": "Wyndolyn Helia of Talisman"}, {"weight_lbs": NaN, "age_weeks": 10, "sex": "F", "height_in": NaN, "Name": "Wyndolyn Persephone"}, {"weight_lbs": 15.0, "age_weeks": 12, "sex": "F", "height_in": NaN, "Name": "Wyndolyn Persephone"}, {"weight_lbs": 16.0, "age_weeks": 13, "sex": "F", "height_in": NaN, "Name": "Wyndolyn Persephone"}, {"weight_lbs": 17.6, "age_weeks": 14, "sex": "F", "height_in": NaN, "Name": "Wyndolyn Persephone"}, {"weight_lbs": 18.6, "age_weeks": 15, "sex": "F", "height_in": NaN, "Name": "Wyndolyn Persephone"}, {"weight_lbs": 20.6, "age_weeks": 17, "sex": "F", "height_in": NaN, "Name": "Wyndolyn Persephone"}, {"weight_lbs": 24.6, "age_weeks": 22, "sex": "F", "height_in": NaN, "Name": "Wyndolyn Persephone"}, {"weight_lbs": 28.8, "age_weeks": 26, "sex": "F", "height_in": NaN, "Name": "Wyndolyn Persephone"}, {"weight_lbs": 33.0, "age_weeks": 52, "sex": "F", "height_in": 21.5, "Name": "Wyndolyn Persephone"}, {"weight_lbs": 7.0, "age_weeks": 13, "sex": "F", "height_in": NaN, "Name": "Wyndolyn Touch of Class"}, {"weight_lbs": 8.4, "age_weeks": 14, "sex": "F", "height_in": NaN, "Name": "Wyndolyn Touch of Class"}, {"weight_lbs": 8.9, "age_weeks": 15, "sex": "F", "height_in": NaN, "Name": "Wyndolyn Touch of Class"}, {"weight_lbs": 13.5, "age_weeks": 19, "sex": "F", "height_in": NaN, "Name": "Wyndolyn Touch of Class"}, {"weight_lbs": 21.2, "age_weeks": 35, "sex": "F", "height_in": NaN, "Name": "Wyndolyn Touch of Class"}, {"weight_lbs": 7.1, "age_weeks": 11, "sex": "F", "height_in": NaN, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 7.9, "age_weeks": 12, "sex": "F", "height_in": 12.25, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 8.6, "age_weeks": 13, "sex": "F", "height_in": 12.75, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 9.7, "age_weeks": 14, "sex": "F", "height_in": 13.0, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 10.55, "age_weeks": 15, "sex": "F", "height_in": 13.75, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 11.7, "age_weeks": 17, "sex": "F", "height_in": 14.5, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 12.79, "age_weeks": 17, "sex": "F", "height_in": 15.0, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 13.9, "age_weeks": 19, "sex": "F", "height_in": 15.25, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 15.7, "age_weeks": 19, "sex": "F", "height_in": 16.0, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 16.3, "age_weeks": 19, "sex": "F", "height_in": 16.75, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 17.0, "age_weeks": 22, "sex": "F", "height_in": 16.75, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 17.6, "age_weeks": 22, "sex": "F", "height_in": 16.5, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 18.1, "age_weeks": 24, "sex": "F", "height_in": 17.0, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 18.3, "age_weeks": 24, "sex": "F", "height_in": 17.25, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 19.6, "age_weeks": 26, "sex": "F", "height_in": 17.5, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": NaN, "age_weeks": 26, "sex": "F", "height_in": 17.875, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 20.7, "age_weeks": 28, "sex": "F", "height_in": 18.0, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": NaN, "age_weeks": 35, "sex": "F", "height_in": 18.25, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": NaN, "age_weeks": 37, "sex": "F", "height_in": 18.5, "Name": "Wyndolyn Touch of Magic at Winsome"}, {"weight_lbs": 30.8, "age_weeks": 156, "sex": "F", "height_in": 19.5, "Name": "Wyndolyn's Mission Olive"}];
+    const LS_KEY = "dog_metrics_data_v2";
+
+    function num(x) {
+      const n = typeof x === "string" ? parseFloat(x) : x;
+      return (Number.isFinite(n) ? n : null);
+    }
+    function normalizeRecord(r) {
+      if (!r || typeof r !== 'object') return {};
+      // migrate legacy column names
+      const out = { ...r };
+      if (out["Name"] && !out.name) out.name = out["Name"];
+      if (out["Weight (lbs)"] != null && out.weight_lbs == null) out.weight_lbs = num(out["Weight (lbs)"]);
+      if (out["Age (Normalized Weeks)"] != null && out.age_weeks == null) out.age_weeks = num(out["Age (Normalized Weeks)"]);
+      if (out["Height (in)"] != null && out.height_in == null) out.height_in = num(out["Height (in)"]);
+      // coerce numbers
+      out.weight_lbs = num(out.weight_lbs);
+      out.age_weeks = num(out.age_weeks);
+      out.height_in = num(out.height_in);
+      // normalize sex
+      if (out.sex != null) {
+        const s = String(out.sex).trim().toUpperCase();
+        if (s.startsWith("F")) out.sex = "F";
+        else if (s.startsWith("M")) out.sex = "M";
+        else out.sex = s || null;
+      } else {
+        out.sex = null;
+      }
+      return out;
+    }
+
+    // --- CSV Import Utilities ---
+    function detectDelimiter(text) {
+      // Try commas, tabs, semicolons
+      const candidates = [",", "\t", ";", "|"];
+      let bestDelim = ",";
+      let bestScore = -1;
+      for (const d of candidates) {
+        const lines = text.split(/\r?\n/).slice(0, 10).filter(Boolean);
+        if (!lines.length) continue;
+        const counts = lines.map(l => l.split(d).length);
+        const variance = counts.reduce((a,c)=>a+c,0) / counts.length;
+        // prefer delimiters that produce more columns (rough heuristic)
+        if (variance > bestScore) { bestScore = variance; bestDelim = d; }
+      }
+      return bestDelim;
+    }
+
+    function parseCSV(text) {
+      const delim = detectDelimiter(text);
+      const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+      if (!lines.length) return [];
+      const header = lines[0].split(delim).map(h => h.trim());
+      const rows = lines.slice(1);
+      const out = [];
+      for (const line of rows) {
+        const cols = line.split(delim);
+        const rec = {};
+        header.forEach((h, i) => {
+          rec[h] = (i < cols.length) ? cols[i].trim() : "";
+        });
+        out.push(rec);
+      }
+      return out;
+    }
+
+    function headerMapFor(obj) {
+      // Map common header variants to normalized keys
+      const keys = Object.keys(obj).reduce((acc,k)=>{ acc[k.toLowerCase()] = k; return acc; }, {});
+      const pick = (variants) => {
+        for (const v of variants) {
+          const lk = v.toLowerCase();
+          if (lk in keys) return keys[lk];
+        }
+        return null;
+      };
+      return {
+        weight: pick(["weight_lbs","weight (lbs)","weight","wt"]),
+        age: pick(["age_weeks","age (normalized weeks)","age","age (weeks)"]),
+        height: pick(["height_in","height (in)","height","ht"]),
+        sex: pick(["sex","gender"]),
+        name: pick(["name","Name"]),
+      };
+    }
+
+    function normalizeImported(records) {
+      const out = [];
+      for (const r of records) {
+        const map = headerMapFor(r);
+        const norm = {
+          weight_lbs: (map.weight ? r[map.weight] : null),
+          age_weeks: (map.age ? r[map.age] : null),
+          height_in: (map.height ? r[map.height] : null),
+          sex: (map.sex ? r[map.sex] : null),
+          name: (map.name ? r[map.name] : null),
+        };
+        out.push(normalizeRecord(norm));
+      }
+      return out;
+    }
+
+
+
+    function loadData() {  const orig = Array.isArray(ORIGINAL_DATA) ? ORIGINAL_DATA.map(normalizeRecord) : [];  const raw = localStorage.getItem(LS_KEY);  if (!raw) return orig;  try {    const parsed = JSON.parse(raw);    if (!Array.isArray(parsed) || parsed.length === 0) return orig;    return parsed.map(normalizeRecord);  } catch {    return orig;  }} catch {    return orig;  }} catch { return [...ORIGINAL_DATA]; }
+    }
+    function saveData(data) { localStorage.setItem(LS_KEY, JSON.stringify(data)); }
+
+    let state = { data: loadData(), sortCol: null, sortAsc: true };
+
+    const xAxisSel = document.getElementById('xAxis');
+    const yAxisSel = document.getElementById('yAxis');
+    const sexFilter = document.getElementById('sexFilter');
+    const sizeByHeight = document.getElementById('sizeByHeight');
+    const addForm = document.getElementById('addForm');
+    const summaryCount = document.getElementById('summaryCount');
+    const resetBtn = document.getElementById('resetBtn');
+    const exportCsvBtn = document.getElementById('exportCsvBtn');
+    const importBtn = document.getElementById('importBtn');
+    const importFile = document.getElementById('importFile');
+    const templateBtn = document.getElementById('templateBtn');
+
+    let chart = null;
+
+    function buildDatasets(filtered) {
+      const groups = {
+        "F": {label: "Female (F)", points: []},
+        "M": {label: "Male (M)", points: []},
+        "OTHER": {label: "Other/Unspecified", points: []},
+      };
+
+      const xKey = xAxisSel.value;
+      const yKey = yAxisSel.value;
+
+      let hMin = Infinity, hMax = -Infinity;
+      if (sizeByHeight.checked) {
+        filtered.forEach(r => {
+          if (typeof r.height_in === "number" && !isNaN(r.height_in)) {
+            hMin = Math.min(hMin, r.height_in);
+            hMax = Math.max(hMax, r.height_in);
+          }
+        });
+        if (!isFinite(hMin)) { hMin = 0; hMax = 1; }
+      }
+
+      const scaleRadius = (h) => {
+        if (!sizeByHeight.checked || typeof h !== "number" || isNaN(h)) return 4;
+        if (hMax === hMin) return 6;
+        const t = (h - hMin) / (hMax - hMin);
+        return 3 + t * 7;
+      };
+
+      filtered.forEach((r, idx) => {
+        const sx = r[xKey];
+        const sy = r[yKey];
+        if (typeof sx !== "number" || isNaN(sx) || typeof sy !== "number" || isNaN(sy)) return;
+        const sex = (r.sex || "OTHER").toUpperCase();
+        const key = (sex === "F" || sex === "M") ? sex : "OTHER";
+        groups[key].points.push({
+          x: sx, y: sy, r: scaleRadius(r.height_in),
+          idx, tooltip: r
+        });
+      });
+
+      const ds = [];
+      const colorMap = {
+        "F": "rgba(79, 70, 229, 0.7)",
+        "M": "rgba(220, 38, 38, 0.7)",
+        "OTHER": "rgba(107, 114, 128, 0.7)"
+      };
+      for (const key of ["F","M","OTHER"]) {
+        const g = groups[key];
+        if (g.points.length === 0) continue;
+        ds.push({
+          label: g.label,
+          data: g.points,
+          parsing: false,
+          showLine: false,
+          pointRadius: ctx => ctx.raw?.r ?? 4,
+          pointHoverRadius: ctx => (ctx.raw?.r ?? 4) + 2,
+          backgroundColor: colorMap[key],
+        });
+      }
+      return ds;
+    }
+
+    function currentFilter(data) {  const f = sexFilter.value;  if (f === 'ALL') return data;  if (f === 'OTHER') return data.filter(r => !r.sex || (r.sex.toUpperCase() !== 'F' && r.sex.toUpperCase() !== 'M'));  return data.filter(r => (r.sex || '').toUpperCase() === f);}
+
+    function renderChart() {
+      const filtered = currentFilter(state.data);
+      summaryCount.textContent = filtered.length;
+      const datasets = buildDatasets(filtered);
+      const xKey = xAxisSel.value, yKey = yAxisSel.value;
+
+      const labelMap = {
+        weight_lbs: "Weight (lbs)",
+        age_weeks: "Age (weeks)",
+        height_in: "Height (in)",
+      };
+
+      const cfg = {
+        type: 'scatter',
+        data: { datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top' },
+            tooltip: {
+              callbacks: {
+                title: (ctx) => ctx[0]?.raw?.tooltip?.name || "Entry",
+                label: (ctx) => {
+                  const r = ctx.raw.tooltip;
+                  return [
+                    `Weight: ${r.weight_lbs ?? "—"} lbs`,
+                    `Age: ${r.age_weeks ?? "—"} weeks`,
+                    `Height: ${r.height_in ?? "—"} in`,
+                    `Sex: ${r.sex ?? "—"}`,
+                  ];
+                }
+              }
+            }
+          },
+          scales: {
+            x: { title: { display: true, text: labelMap[xKey] } },
+            y: { title: { display: true, text: labelMap[yKey] } }
+          }
+        }
+      };
+
+      const ctx = document.getElementById('chart').getContext('2d');
+      if (chart) { chart.destroy(); }
+      chart = new Chart(ctx, cfg);
+    }
+
+    function renderTable() {
+      const tbody = document.querySelector('#dataTable tbody');
+      tbody.innerHTML = '';
+      let rows = [...state.data];
+
+      if (state.sortCol) {
+        rows.sort((a, b) => {
+          const va = a[state.sortCol];
+          const vb = b[state.sortCol];
+          if (va == null && vb == null) return 0;
+          if (va == null) return state.sortAsc ? 1 : -1;
+          if (vb == null) return state.sortAsc ? -1 : 1;
+          if (typeof va === "number" && typeof vb === "number") return state.sortAsc ? va - vb : vb - va;
+          return state.sortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+        });
+      }
+
+      rows.forEach((r, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${r.weight_lbs ?? ""}</td>
+          <td>${r.age_weeks ?? ""}</td>
+          <td>${r.height_in ?? ""}</td>
+          <td>${r.sex ?? ""}</td>
+          <td>${r.name ?? ""}</td>
+          <td><button data-idx="${idx}" class="deleteBtn text-red-600 text-sm">Delete</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.querySelectorAll('.deleteBtn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const i = Number(e.currentTarget.getAttribute('data-idx'));
+          state.data.splice(i, 1);
+          saveData(state.data);
+          renderTable();
+          renderChart();
+        });
+      });
+    }
+
+    document.querySelectorAll('#dataTable th[data-col]').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.getAttribute('data-col');
+        if (state.sortCol === col) { state.sortAsc = !state.sortAsc; }
+        else { state.sortCol = col; state.sortAsc = true; }
+        renderTable();
+      });
+    });
+
+    addForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const form = new FormData(addForm);
+      const weight = parseFloat(form.get('weight_lbs'));
+      const age = parseFloat(form.get('age_weeks'));
+      const height = parseFloat(form.get('height_in'));
+      const sex = (form.get('sex') || "").toUpperCase() || null;
+      const name = form.get('name') || null;
+
+      const rec = {
+        weight_lbs: isFinite(weight) ? weight : null,
+        age_weeks: isFinite(age) ? age : null,
+        height_in: isFinite(height) ? height : null,
+        sex: sex && (sex === "F" || sex === "M") ? sex : (sex || null),
+        name: name || null,
+      };
+
+      state.data = [...state.data, rec]; saveData(state.data);
+      addForm.reset();
+      renderTable();
+      renderChart();
+    });
+
+    [xAxisSel, yAxisSel, sexFilter, sizeByHeight].forEach(el => el.addEventListener('change', () => renderChart()));
+
+    resetBtn.addEventListener('click', () => {
+      if (!confirm("Reset to original data from the spreadsheet? This will clear your local edits.")) return;
+      localStorage.removeItem(LS_KEY);
+      state.data = [...ORIGINAL_DATA];
+      renderTable();
+      renderChart();
+    });
+
+    function toCsv(arr) {
+      const headers = ["weight_lbs","age_weeks","height_in","sex","name"];
+      const lines = [headers.join(",")];
+      for (const r of arr) {
+        const row = headers.map(h => {
+          let v = r[h];
+          if (v === null || v === undefined) return "";
+          if (typeof v === "string" && (v.includes(',') || v.includes('"') || v.includes('\n'))) {
+            v = '"' + v.replace(/"/g, '""') + '"';
+          }
+          return v;
+        }).join(",");
+        lines.push(row);
+      }
+      return lines.join("\n");
+    }
+
+    
+    // Import CSV flow
+    importBtn.addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      const parsed = parseCSV(text);
+      if (!parsed.length) { alert("No rows found in CSV."); return; }
+      const normalized = normalizeImported(parsed);
+      const append = confirm("Import complete. Click OK to APPEND, or Cancel to REPLACE your current data.");
+      if (append) {
+        state.data = state.data.concat(normalized);
+      } else {
+        state.data = normalized;
+      }
+      saveData(state.data);
+      renderTable();
+      renderChart();
+      importFile.value = "";
+    });
+
+    // Download template CSV
+    templateBtn.addEventListener('click', () => {
+      const headers = ["weight_lbs","age_weeks","height_in","sex","name"];
+      const sample = [
+        headers.join(","),
+        "11.3,14,14.75,F,Alice",
+        "22.1,28,18.2,M,Bob"
+      ].join("\\n");
+      const blob = new Blob([sample], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "dog_metrics_template.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    exportCsvBtn.addEventListener('click', () => {
+      const csv = toCsv(state.data);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "dog_metrics.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    renderTable();
+    renderChart();
+  </script>
+</body>
+</html>
