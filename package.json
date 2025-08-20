@@ -1,24 +1,24 @@
 {
-  "name": "winsome-growth-data",
-  "version": "1.0.0",
-  "description": "Dog Metrics Plotter - A web application for visualizing dog growth data",
-  "main": "index.html",
-  "scripts": {
-    "dev": "python3 -m http.server 3000",
-    "dev-node": "npx http-server -p 3000 -o",
-    "start": "python3 -m http.server 3000",
-    "serve": "python3 -m http.server 8080",
-    "open": "python3 -m http.server 3000 & sleep 2 && \"$BROWSER\" http://localhost:3000"
-  },
-  "keywords": [
-    "data-visualization",
-    "charts",
-    "dog-metrics",
-    "growth-tracking"
-  ],
-  "author": "",
-  "license": "MIT",
-  "devDependencies": {
-    "http-server": "^14.1.1"
-  }
+    "name": "winsome-growth-data",
+    "version": "1.0.0",
+    "description": "Dog Metrics Plotter - A web application for visualizing dog growth data",
+    "main": "index.html",
+    "scripts": {
+        "dev": "python3 -m http.server 3000",
+        "dev-node": "npx http-server -p 3000 -o",
+        "start": "python3 -m http.server 3000",
+        "serve": "python3 -m http.server 8080",
+        "open": "python3 -m http.server 3000 & sleep 2 && \"$BROWSER\" http://localhost:3000"
+    },
+    "keywords": [
+        "data-visualization",
+        "charts",
+        "dog-metrics",
+        "growth-tracking"
+    ],
+    "author": "",
+    "license": "MIT",
+    "devDependencies": {
+        "http-server": "^14.1.1"
+    }
 }
