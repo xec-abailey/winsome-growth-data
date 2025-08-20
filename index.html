@@ -41,11 +41,10 @@
         <p class="text-sm text-gray-600">Add new entries and visualize relationships. Units: Weight (lbs), Height (in),
           Age (weeks).</p>
       </div>
-      <div class="flex gap-2">
+      <div class="flex gap-2 items-center">
         <button id="exportCsvBtn" class="px-3 py-2 rounded-xl bg-white border hover:bg-gray-50">Export CSV</button>
-        <button id="resetBtn" class="px-3 py-2 rounded-xl bg-white border hover:bg-gray-50">Reset to
-          Original</button><input type="file" id="importFile" accept=".csv" class="hidden"><button id="importBtn"
-          class="px-3 py-2 rounded-xl bg-white border hover:bg-gray-50">Import CSV</button>
+        <input type="file" id="importFile" accept=".csv" class="hidden">
+        <button id="importBtn" class="px-3 py-2 rounded-xl bg-white border hover:bg-gray-50">Import CSV</button>
       </div>
     </header>
 
@@ -69,6 +68,7 @@
                 <option value="height_in">Height (in)</option>
               </select>
             </label>
+            <!-- Removed size-by-height control -->
             <label class="text-sm col-span-2">Filter by Sex
               <select id="sexFilter" class="w-full mt-1 border rounded-md p-2">
                 <option value="ALL" selected>All</option>

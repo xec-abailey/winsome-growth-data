@@ -1,4 +1,4 @@
-import { loadData, saveData, resetToOriginal } from './state.js';
+import { loadData, saveData } from './state.js';
 import { renderChart } from './chart.js';
 import { renderTable, attachSorting } from './table.js';
 import { parseCSV, normalizeImported, toCsv } from './csv.js';
@@ -9,7 +9,6 @@ const yAxisSel = document.getElementById('yAxis');
 const sexFilter = document.getElementById('sexFilter');
 const addForm = document.getElementById('addForm');
 const summaryCount = document.getElementById('summaryCount');
-const resetBtn = document.getElementById('resetBtn');
 const exportCsvBtn = document.getElementById('exportCsvBtn');
 const importBtn = document.getElementById('importBtn');
 const importFile = document.getElementById('importFile');
@@ -90,14 +89,6 @@ async function init() {
     state.data = [...state.data, rec];
     saveData(state.data);
     addForm.reset();
-    updateNameOptions(state);
-    renderTable(state);
-    rerender(state);
-  });
-
-  resetBtn.addEventListener('click', () => {
-    if (!confirm('Reset to original data from the spreadsheet? This will clear your local edits.')) return;
-    state.data = resetToOriginal();
     updateNameOptions(state);
     renderTable(state);
     rerender(state);
