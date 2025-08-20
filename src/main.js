@@ -14,14 +14,36 @@ const resetBtn = document.getElementById('resetBtn');
 const exportCsvBtn = document.getElementById('exportCsvBtn');
 const importBtn = document.getElementById('importBtn');
 const importFile = document.getElementById('importFile');
+const colorBySel = document.getElementById('colorBy');
+const nameFilterSel = document.getElementById('nameFilter');
 
 const chartRef = { current: null };
 
+function updateNameOptions(state) {
+  if (!nameFilterSel) return;
+  const prev = nameFilterSel.value;
+  const names = Array.from(
+    new Set(state.data.map(r => (r.name || '').toString().trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b));
+  nameFilterSel.innerHTML = ['<option value="ALL">All</option>', ...names.map(n => `<option value="${n}">${n}</option>`)].join('');
+  if (names.includes(prev)) nameFilterSel.value = prev; else nameFilterSel.value = 'ALL';
+}
+
 function getFiltered(data) {
+  let out = data;
   const f = sexFilter.value;
-  if (f === 'ALL') return data;
-  if (f === 'OTHER') return data.filter(r => !r.sex || (r.sex.toUpperCase() !== 'F' && r.sex.toUpperCase() !== 'M'));
-  return data.filter(r => (r.sex || '').toUpperCase() === f);
+  if (f === 'ALL') {
+    // no-op
+  } else if (f === 'OTHER') {
+    out = out.filter(r => !r.sex || (r.sex.toUpperCase() !== 'F' && r.sex.toUpperCase() !== 'M'));
+  } else {
+    out = out.filter(r => (r.sex || '').toUpperCase() === f);
+  }
+  const nameVal = nameFilterSel?.value;
+  if (nameVal && nameVal !== 'ALL') {
+    out = out.filter(r => (r.name || '').toString().trim() === nameVal);
+  }
+  return out;
 }
 
 function rerender(state) {
@@ -32,6 +54,7 @@ function rerender(state) {
     xKey: xAxisSel.value,
     yKey: yAxisSel.value,
     sizeByHeight: sizeByHeight.checked,
+    colorBy: colorBySel?.value || 'sex',
     chartRef,
     summaryEl: summaryCount
   });
@@ -45,11 +68,13 @@ async function init() {
     onChange: () => rerender(state)
   };
 
+  updateNameOptions(state);
   attachSorting(state);
   renderTable(state);
   rerender(state);
 
-  [xAxisSel, yAxisSel, sexFilter, sizeByHeight].forEach(el => el.addEventListener('change', () => rerender(state)));
+  [xAxisSel, yAxisSel, sexFilter, sizeByHeight, colorBySel, nameFilterSel].filter(Boolean)
+    .forEach(el => el.addEventListener('change', () => rerender(state)));
 
   addForm.addEventListener('submit', e => {
     e.preventDefault();
@@ -64,6 +89,7 @@ async function init() {
     state.data = [...state.data, rec];
     saveData(state.data);
     addForm.reset();
+    updateNameOptions(state);
     renderTable(state);
     rerender(state);
   });
@@ -71,6 +97,7 @@ async function init() {
   resetBtn.addEventListener('click', () => {
     if (!confirm('Reset to original data from the spreadsheet? This will clear your local edits.')) return;
     state.data = resetToOriginal();
+    updateNameOptions(state);
     renderTable(state);
     rerender(state);
   });
@@ -89,6 +116,7 @@ async function init() {
     const append = confirm('Import complete. Click OK to APPEND, or Cancel to REPLACE your current data.');
     state.data = append ? state.data.concat(normalized) : normalized;
     saveData(state.data);
+    updateNameOptions(state);
     renderTable(state);
     rerender(state);
     importFile.value = '';

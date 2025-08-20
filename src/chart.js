@@ -1,28 +1,42 @@
 // Chart rendering
-export function buildDatasets(filtered, { xKey, yKey, sizeByHeight }) {
-  const groups = {
-    F: { label: 'Female (F)', points: [] },
-    M: { label: 'Male (M)', points: [] },
-    OTHER: { label: 'Other/Unspecified', points: [] }
-  };
+function getColorPalette() {
+  // 20 visually distinct colors
+  return [
+    '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+    '#393b79', '#637939', '#8c6d31', '#843c39', '#7b4173', '#3182bd', '#31a354', '#756bb1', '#636363', '#e6550d'
+  ];
+}
 
-  let hMin = Infinity,
-    hMax = -Infinity;
+const namedColorCache = new Map();
+function colorForGroup(label) {
+  if (label === 'F') return 'rgba(79, 70, 229, 0.7)';
+  if (label === 'M') return 'rgba(220, 38, 38, 0.7)';
+  if (label === 'OTHER' || label === 'Unspecified') return 'rgba(107, 114, 128, 0.7)';
+  if (namedColorCache.has(label)) return namedColorCache.get(label);
+  const palette = getColorPalette();
+  const idx = (namedColorCache.size % palette.length);
+  const color = palette[idx] + 'b3'; // add ~70% opacity if hex; fallback if not hex handled by css
+  namedColorCache.set(label, color);
+  return color;
+}
+
+export function buildDatasets(filtered, { xKey, yKey, sizeByHeight, colorBy }) {
+  const groupKey = colorBy === 'name' ? 'name' : 'sex';
+  const groups = new Map();
+
+  let hMin = Infinity, hMax = -Infinity;
   if (sizeByHeight) {
-    filtered.forEach(r => {
-      if (typeof r.height_in === 'number' && !isNaN(r.height_in)) {
+    for (const r of filtered) {
+      if (typeof r.height_in === 'number' && isFinite(r.height_in)) {
         hMin = Math.min(hMin, r.height_in);
         hMax = Math.max(hMax, r.height_in);
       }
-    });
-    if (!isFinite(hMin)) {
-      hMin = 0;
-      hMax = 1;
     }
+    if (!isFinite(hMin)) { hMin = 0; hMax = 1; }
   }
 
   const scaleRadius = h => {
-    if (!sizeByHeight || typeof h !== 'number' || isNaN(h)) return 4;
+    if (!sizeByHeight || typeof h !== 'number' || !isFinite(h)) return 4;
     if (hMax === hMin) return 6;
     const t = (h - hMin) / (hMax - hMin);
     return 3 + t * 7;
@@ -31,32 +45,31 @@ export function buildDatasets(filtered, { xKey, yKey, sizeByHeight }) {
   filtered.forEach((r, idx) => {
     const sx = r[xKey];
     const sy = r[yKey];
-    if (typeof sx !== 'number' || isNaN(sx) || typeof sy !== 'number' || isNaN(sy)) return;
-    const sex = (r.sex || 'OTHER').toUpperCase();
-    const key = sex === 'F' || sex === 'M' ? sex : 'OTHER';
-    groups[key].points.push({ x: sx, y: sy, r: scaleRadius(r.height_in), idx, tooltip: r });
+    if (typeof sx !== 'number' || !isFinite(sx) || typeof sy !== 'number' || !isFinite(sy)) return;
+    let key = (r[groupKey] ?? '').toString().trim();
+    if (!key) key = groupKey === 'sex' ? 'OTHER' : 'Unspecified';
+    if (groupKey === 'sex') {
+      const s = key.toUpperCase();
+      key = (s === 'F' || s === 'M') ? s : 'OTHER';
+    }
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ x: sx, y: sy, r: scaleRadius(r.height_in), idx, tooltip: r });
   });
 
-  const ds = [];
-  const colorMap = {
-    F: 'rgba(79, 70, 229, 0.7)',
-    M: 'rgba(220, 38, 38, 0.7)',
-    OTHER: 'rgba(107, 114, 128, 0.7)'
-  };
-  for (const key of ['F', 'M', 'OTHER']) {
-    const g = groups[key];
-    if (g.points.length === 0) continue;
-    ds.push({
-      label: g.label,
-      data: g.points,
+  const datasets = [];
+  for (const [label, points] of groups.entries()) {
+    if (!points.length) continue;
+    datasets.push({
+      label,
+      data: points,
       parsing: false,
       showLine: false,
       pointRadius: ctx => ctx.raw?.r ?? 4,
       pointHoverRadius: ctx => (ctx.raw?.r ?? 4) + 2,
-      backgroundColor: colorMap[key]
+      backgroundColor: colorForGroup(label)
     });
   }
-  return ds;
+  return datasets;
 }
 
 function computeDomain(rows, key) {
@@ -77,10 +90,10 @@ function computeDomain(rows, key) {
   return [min, max];
 }
 
-export function renderChart({ data, xKey, yKey, sizeByHeight, chartRef, summaryEl }) {
+export function renderChart({ data, xKey, yKey, sizeByHeight, colorBy, chartRef, summaryEl }) {
   const filtered = data;
   if (summaryEl) summaryEl.textContent = filtered.length;
-  const datasets = buildDatasets(filtered, { xKey, yKey, sizeByHeight });
+  const datasets = buildDatasets(filtered, { xKey, yKey, sizeByHeight, colorBy });
 
   const labelMap = {
     weight_lbs: 'Weight (lbs)',
